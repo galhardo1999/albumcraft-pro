@@ -15,7 +15,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
 import UploadDropzone from "@/components/upload-dropzone";
-import { useRouter } from "wouter";
+import { useLocation } from "wouter";
 
 interface AlbumCreationModalProps {
   open: boolean;
@@ -26,7 +26,7 @@ export default function AlbumCreationModal({ open, onOpenChange }: AlbumCreation
   const { toast } = useToast();
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const [, navigate] = useRouter();
+  const [, setLocation] = useLocation();
   const [step, setStep] = useState(1);
   const [albumData, setAlbumData] = useState({
     name: "",
@@ -57,7 +57,7 @@ export default function AlbumCreationModal({ open, onOpenChange }: AlbumCreation
           description: "Your album has been created successfully.",
         });
         onOpenChange(false);
-        navigate(`/albums/${album.id}/edit`);
+        setLocation(`/albums/${album.id}/edit`);
       }
     },
     onError: (error) => {
@@ -100,7 +100,7 @@ export default function AlbumCreationModal({ open, onOpenChange }: AlbumCreation
         description: "Your album and photos have been uploaded successfully.",
       });
       onOpenChange(false);
-      navigate(`/albums/${albumId}/edit`);
+      setLocation(`/albums/${albumId}/edit`);
     } catch (error) {
       toast({
         title: "Upload Error",
@@ -108,7 +108,7 @@ export default function AlbumCreationModal({ open, onOpenChange }: AlbumCreation
         variant: "destructive",
       });
       onOpenChange(false);
-      navigate(`/albums/${albumId}/edit`);
+      setLocation(`/albums/${albumId}/edit`);
     }
   };
 
