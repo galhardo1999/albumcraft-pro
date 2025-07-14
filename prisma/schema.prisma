@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -10,22 +7,20 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// NextAuth.js required models
 model Account {
   id                String  @id @default(cuid())
   userId            String
   type              String
   provider          String
   providerAccountId String
-  refresh_token     String? @db.Text
-  access_token      String? @db.Text
+  refresh_token     String?
+  access_token      String?
   expires_at        Int?
   token_type        String?
   scope             String?
-  id_token          String? @db.Text
+  id_token          String?
   session_state     String?
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
 }
@@ -39,23 +34,21 @@ model Session {
 }
 
 model User {
-  id            String    @id @default(cuid())
+  id            String     @id @default(cuid())
   name          String?
-  email         String    @unique
+  email         String     @unique
   emailVerified DateTime?
   image         String?
   firstName     String?
   lastName      String?
-  password      String?   // For credentials authentication
-  plan          String    @default("FREE") // FREE, PRO, PREMIUM
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-
-  // Relations
-  accounts Account[]
-  sessions Session[]
-  albums   Album[]
-  albumJobs AlbumJob[]
+  plan          String     @default("FREE")
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  password      String?
+  accounts      Account[]
+  albums        Album[]
+  albumJobs     AlbumJob[]
+  sessions      Session[]
 }
 
 model VerificationToken {
@@ -66,23 +59,20 @@ model VerificationToken {
   @@unique([identifier, token])
 }
 
-// Application models
 model Album {
   id          String   @id @default(cuid())
   userId      String
   name        String
-  size        String   @default("A4") // A4, A3, Letter, Square
-  orientation String   @default("Landscape") // Landscape, Portrait, Square
-  status      String   @default("draft") // draft, completed, exported
+  size        String   @default("A4")
+  orientation String   @default("Landscape")
+  status      String   @default("draft")
   photoCount  Int      @default(0)
   slideCount  Int      @default(0)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-
-  // Relations
-  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  photos Photo[]
-  slides Slide[]
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  photos      Photo[]
+  slides      Slide[]
 
   @@index([userId])
 }
@@ -100,9 +90,7 @@ model Photo {
   thumbnailUrl String?
   order        Int      @default(0)
   createdAt    DateTime @default(now())
-
-  // Relations
-  album Album @relation(fields: [albumId], references: [id], onDelete: Cascade)
+  album        Album    @relation(fields: [albumId], references: [id], onDelete: Cascade)
 
   @@index([albumId])
 }
@@ -111,13 +99,11 @@ model Slide {
   id             String   @id @default(cuid())
   albumId        String
   order          Int      @default(0)
-  layout         String   @default("single") // single, double, triple, quad, grid
-  photoPositions Json     @default("[]") // Array of photo IDs with positions
+  layout         String   @default("single")
+  photoPositions Json     @default("[]")
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
-
-  // Relations
-  album Album @relation(fields: [albumId], references: [id], onDelete: Cascade)
+  album          Album    @relation(fields: [albumId], references: [id], onDelete: Cascade)
 
   @@index([albumId])
 }
@@ -125,17 +111,15 @@ model Slide {
 model AlbumJob {
   id             String   @id @default(cuid())
   userId         String
-  type           String // create_multiple, export_batch
-  status         String   @default("pending") // pending, processing, completed, failed
+  type           String
+  status         String   @default("pending")
   progress       Int      @default(0)
   totalItems     Int      @default(0)
   completedItems Int      @default(0)
   metadata       Json     @default("{}")
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
-
-  // Relations
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
 }
