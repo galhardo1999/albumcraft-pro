@@ -3,19 +3,10 @@
   "buildCommand": "npm run vercel-build",
   "outputDirectory": "client/dist",
   "installCommand": "npm install",
-  "functions": {
-    "api/auth/[...nextauth].js": {
-      "runtime": "nodejs18.x"
-    }
-  },
   "rewrites": [
     {
       "source": "/api/auth/(.*)",
       "destination": "/api/auth/[...nextauth].js"
-    },
-    {
-      "source": "/api/(.*)",
-      "destination": "/server/index.ts"
     }
   ]
 }
