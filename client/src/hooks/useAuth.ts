@@ -1,14 +1,11 @@
-import { useQuery } from "@tanstack/react-query";
+import { useSession } from "next-auth/react";
 
 export function useAuth() {
-  const { data: user, isLoading } = useQuery({
-    queryKey: ["/api/auth/user"],
-    retry: false,
-  });
-
+  const { data: session, status } = useSession();
+  
   return {
-    user,
-    isLoading,
-    isAuthenticated: !!user,
+    user: session?.user,
+    isLoading: status === "loading",
+    isAuthenticated: !!session?.user,
   };
 }

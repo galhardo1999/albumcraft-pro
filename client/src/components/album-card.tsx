@@ -1,6 +1,5 @@
 import { Link } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { 
   DropdownMenu, 
@@ -8,83 +7,73 @@ import {
   DropdownMenuItem, 
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, Edit, Trash2, Download, Eye } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { MoreHorizontal, Edit, Trash2, Download, Eye, FolderOpen } from "lucide-react";
+import { useState } from "react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import type { Album } from "@/../../shared/types";
 
 interface AlbumCardProps {
-  album: any;
-  viewMode?: "grid" | "list";
+  album: Album;
+  onUpdate?: () => void;
 }
 
-export default function AlbumCard({ album, viewMode = "grid" }: AlbumCardProps) {
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "completed":
-        return "bg-green-500";
-      case "exported":
-        return "bg-blue-500";
-      case "draft":
-      default:
-        return "bg-yellow-500";
-    }
-  };
+export function AlbumCard({ album, onUpdate }: AlbumCardProps) {
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case "completed":
-        return "Completed";
-      case "exported":
-        return "Exported";
-      case "draft":
-      default:
-        return "Draft";
+  const handleDeleteAlbum = async () => {
+    setIsDeleting(true);
+    try {
+      const response = await fetch(`/api/albums/${album.id}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      if (response.ok) {
+        onUpdate?.();
+        setShowDeleteDialog(false);
+      }
+    } catch (error) {
+      console.error('Failed to delete album:', error);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffTime = Math.abs(now.getTime() - date.getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    
-    if (diffDays === 1) return "1 day ago";
-    if (diffDays < 7) return `${diffDays} days ago`;
-    if (diffDays < 30) return `${Math.ceil(diffDays / 7)} weeks ago`;
-    return date.toLocaleDateString();
+    return new Date(dateString).toLocaleDateString();
   };
 
-  if (viewMode === "list") {
-    return (
-      <Card className="album-card">
-        <CardContent className="p-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <div className="w-16 h-16 bg-muted rounded-lg flex items-center justify-center">
-                <div className="text-2xl">📸</div>
-              </div>
-              <div>
-                <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors">
+  return (
+    <>
+      <Card className="border border-gray-200 hover:border-gray-300 transition-colors group">
+        <CardContent className="p-0">
+          <Link href={`/albums/${album.id}/edit`}>
+            <div className="relative overflow-hidden rounded-t-lg bg-gray-50 aspect-[4/3] flex items-center justify-center">
+              <FolderOpen className="h-12 w-12 text-gray-300" />
+              <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-5 transition-opacity"></div>
+            </div>
+          </Link>
+          
+          <div className="p-4">
+            <div className="flex items-start justify-between mb-2">
+              <Link href={`/albums/${album.id}/edit`}>
+                <h3 className="font-medium text-gray-900 group-hover:text-gray-700 transition-colors line-clamp-1">
                   {album.name}
                 </h3>
-                <p className="text-sm text-muted-foreground">
-                  {album.photoCount || 0} photos • Created {formatDate(album.createdAt)}
-                </p>
-                <div className="flex items-center space-x-2 text-sm text-muted-foreground mt-1">
-                  <span>{album.orientation}</span>
-                  <span>•</span>
-                  <span>{album.size}</span>
-                </div>
-              </div>
-            </div>
-            
-            <div className="flex items-center space-x-2">
-              <Badge className={cn("text-white", getStatusColor(album.status))}>
-                {getStatusText(album.status)}
-              </Badge>
+              </Link>
               
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm">
+                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity">
                     <MoreHorizontal className="h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>
@@ -103,51 +92,48 @@ export default function AlbumCard({ album, viewMode = "grid" }: AlbumCardProps) 
                     <Download className="h-4 w-4 mr-2" />
                     Export
                   </DropdownMenuItem>
-                  <DropdownMenuItem className="text-destructive">
+                  <DropdownMenuItem 
+                    className="text-red-600"
+                    onClick={() => setShowDeleteDialog(true)}
+                  >
                     <Trash2 className="h-4 w-4 mr-2" />
                     Delete
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
+            
+            <div className="flex items-center justify-between text-xs text-gray-500">
+              <span>{album.photoCount} photos</span>
+              <span>{formatDate(album.createdAt)}</span>
+            </div>
           </div>
         </CardContent>
       </Card>
-    );
-  }
-
-  return (
-    <Card className="album-card">
-      <CardContent className="p-0">
-        <Link href={`/albums/${album.id}/edit`}>
-          <div className="relative overflow-hidden rounded-t-lg bg-muted aspect-[4/3] flex items-center justify-center">
-            {/* Placeholder for album cover */}
-            <div className="text-6xl opacity-20">📸</div>
-            <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 transition-opacity"></div>
-            <Badge 
-              className={cn("absolute top-3 right-3 text-white", getStatusColor(album.status))}
+      
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Album</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{album.name}"? This action cannot be undone.
+              All photos and slides in this album will be permanently removed.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleDeleteAlbum}
+              className="bg-red-600 text-white hover:bg-red-700"
+              disabled={isDeleting}
             >
-              {getStatusText(album.status)}
-            </Badge>
-          </div>
-        </Link>
-        
-        <div className="p-4 space-y-2">
-          <Link href={`/albums/${album.id}/edit`}>
-            <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors">
-              {album.name}
-            </h3>
-          </Link>
-          <p className="text-sm text-muted-foreground">
-            {album.photoCount || 0} photos • Created {formatDate(album.createdAt)}
-          </p>
-          <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-            <span>{album.orientation}</span>
-            <span>•</span>
-            <span>{album.size}</span>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
+              {isDeleting ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
+
+export default AlbumCard;

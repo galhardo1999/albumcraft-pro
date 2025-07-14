@@ -185,7 +185,7 @@ export default function AlbumList() {
         {sortedAlbums.length > 0 ? (
           <div className={`grid ${viewMode === "grid" ? "grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" : "grid-cols-1 gap-4"}`}>
             {sortedAlbums.map((album: any) => (
-              <AlbumCard key={album.id} album={album} viewMode={viewMode} />
+              <AlbumCard key={album.id} album={album} />
             ))}
           </div>
         ) : (
