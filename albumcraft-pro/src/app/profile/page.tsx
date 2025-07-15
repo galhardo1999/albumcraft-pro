@@ -3,12 +3,17 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 
 interface UserProfile {
   id: string
-  name: string
   email: string
+  name: string
+  avatarUrl?: string
   plan: 'FREE' | 'PRO' | 'ENTERPRISE'
+  createdAt: string
+  lastLogin?: string
 }
 
 interface FormData {
@@ -46,11 +51,12 @@ export default function ProfilePage() {
       if (response.ok) {
         const userData = await response.json()
         if (userData.success && userData.data?.user) {
-          setUser(userData.data.user)
+          const userInfo = userData.data.user
+          setUser(userInfo)
           setFormData(prev => ({
             ...prev,
-            name: userData.data.user.name,
-            email: userData.data.user.email
+            name: userInfo.name || '',
+            email: userInfo.email || ''
           }))
         } else {
           router.push('/auth/login')
@@ -58,8 +64,8 @@ export default function ProfilePage() {
       } else {
         router.push('/auth/login')
       }
-    } catch (error: unknown) {
-      console.error('Erro ao carregar perfil:', error)
+    } catch (error) {
+      console.error('Error fetching user profile:', error)
       router.push('/auth/login')
     } finally {
       setIsLoading(false)
@@ -76,42 +82,44 @@ export default function ProfilePage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setIsLoading(true)
     setMessage('')
 
     // Validações
     if (formData.newPassword && formData.newPassword !== formData.confirmPassword) {
       setMessage('As senhas não coincidem')
       setMessageType('error')
-      setIsLoading(false)
       return
     }
 
-    if (formData.newPassword && !formData.currentPassword) {
-      setMessage('Digite sua senha atual para alterar a senha')
+    if (formData.newPassword && formData.newPassword.length < 6) {
+      setMessage('A nova senha deve ter pelo menos 6 caracteres')
       setMessageType('error')
-      setIsLoading(false)
       return
     }
 
     try {
+      const updateData: any = {
+        name: formData.name,
+        email: formData.email
+      }
+
+      if (formData.newPassword) {
+        updateData.currentPassword = formData.currentPassword
+        updateData.newPassword = formData.newPassword
+      }
+
       const response = await fetch('/api/auth/update-profile', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json'
         },
         credentials: 'include',
-        body: JSON.stringify({
-          name: formData.name,
-          email: formData.email,
-          currentPassword: formData.currentPassword || undefined,
-          newPassword: formData.newPassword || undefined
-        })
+        body: JSON.stringify(updateData)
       })
 
-      const data = await response.json()
+      const result = await response.json()
 
-      if (response.ok) {
+      if (response.ok && result.success) {
         setMessage('Perfil atualizado com sucesso!')
         setMessageType('success')
         setFormData(prev => ({
@@ -120,18 +128,52 @@ export default function ProfilePage() {
           newPassword: '',
           confirmPassword: ''
         }))
+        
         // Atualizar dados do usuário
-        await fetchUserProfile()
+        if (result.data?.user) {
+          setUser(result.data.user)
+        }
       } else {
-        setMessage(data.error || 'Erro ao atualizar perfil')
+        setMessage(result.error?.message || 'Erro ao atualizar perfil')
         setMessageType('error')
       }
-    } catch (error: unknown) {
-      console.error('Erro:', error)
-      setMessage('Erro ao atualizar perfil')
+    } catch (error) {
+      console.error('Error updating profile:', error)
+      setMessage('Erro interno do servidor')
       setMessageType('error')
-    } finally {
-      setIsLoading(false)
+    }
+  }
+
+  const getPlanDetails = (plan: string) => {
+    switch (plan) {
+      case 'FREE':
+        return {
+          name: 'Plano Gratuito',
+          description: 'Ideal para começar',
+          features: ['Até 3 álbuns', 'Até 50 fotos por álbum', 'Templates básicos'],
+          price: 'Gratuito'
+        }
+      case 'PRO':
+        return {
+          name: 'Plano Pro',
+          description: 'Para usuários avançados',
+          features: ['Álbuns ilimitados', 'Até 500 fotos por álbum', 'Todos os templates', 'Suporte prioritário'],
+          price: 'R$ 29,90/mês'
+        }
+      case 'ENTERPRISE':
+        return {
+          name: 'Plano Enterprise',
+          description: 'Para empresas',
+          features: ['Tudo do Pro', 'Fotos ilimitadas', 'API personalizada', 'Suporte dedicado'],
+          price: 'R$ 99,90/mês'
+        }
+      default:
+        return {
+          name: 'Plano Desconhecido',
+          description: '',
+          features: [],
+          price: ''
+        }
     }
   }
 
@@ -236,232 +278,189 @@ export default function ProfilePage() {
       </nav>
 
       {/* Main Content */}
-      <main className="max-w-4xl mx-auto px-6 py-8">
+      <main className="max-w-7xl mx-auto px-6 py-8">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-2xl font-semibold tracking-tight mb-2">Perfil</h1>
-          <p className="text-muted-foreground">Gerencie suas informações pessoais e configurações da conta</p>
+          <h1 className="text-2xl font-semibold tracking-tight mb-2">Meu Perfil</h1>
+          <p className="text-muted-foreground">Gerencie suas informações pessoais e configurações</p>
         </div>
 
-        {/* Error/Success Message */}
         {message && (
           <div className={`mb-6 rounded-xl border px-4 py-3 text-sm ${
             messageType === 'success' 
-              ? 'bg-green-50 border-green-200 text-green-800' 
+              ? 'bg-green-50 border-green-200 text-green-700' 
               : 'bg-destructive/10 border-destructive/20 text-destructive'
           }`}>
             {message}
           </div>
         )}
 
-        <div className="space-y-6">
-          {/* Plan Information Card */}
-          <div className="rounded-xl border bg-card p-6">
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center space-x-4">
-                <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-blue-600 rounded-full flex items-center justify-center">
-                  <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
-                  </svg>
-                </div>
-                <div>
-                  <h2 className="text-lg font-semibold">Plano Atual</h2>
-                  <p className="text-sm text-muted-foreground">Gerencie sua assinatura</p>
-                </div>
-              </div>
-              {user?.plan !== 'ENTERPRISE' && (
-                <Link
-                  href="/plans"
-                  className="px-4 py-2 text-sm font-medium text-primary-foreground bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl"
-                >
-                  Fazer Upgrade
-                </Link>
-              )}
-            </div>
-
-            <div className="space-y-4">
-              <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50">
-                <div className="flex items-center space-x-3">
-                  <div className={`w-3 h-3 rounded-full ${
-                    user?.plan === 'FREE' ? 'bg-gray-400' :
-                    user?.plan === 'PRO' ? 'bg-blue-500' :
-                    'bg-purple-600'
-                  }`}></div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Profile Information */}
+          <div className="lg:col-span-2">
+            <div className="rounded-xl border bg-card p-6">
+              <h2 className="text-lg font-semibold mb-6">Informações Pessoais</h2>
+              
+              <form onSubmit={handleSubmit} className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <p className="font-semibold">
-                      {user?.plan === 'FREE' ? 'Plano Gratuito' :
-                       user?.plan === 'PRO' ? 'Plano Pro' :
-                       'Plano Enterprise'}
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      {user?.plan === 'FREE' ? 'Recursos básicos para começar' :
-                       user?.plan === 'PRO' ? 'Recursos avançados para profissionais' :
-                       'Recursos completos para empresas'}
-                    </p>
+                    <label htmlFor="name" className="block text-sm font-medium mb-2">
+                      Nome Completo
+                    </label>
+                    <Input
+                      id="name"
+                      type="text"
+                      value={formData.name}
+                      onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                      required
+                    />
+                  </div>
+                  
+                  <div>
+                    <label htmlFor="email" className="block text-sm font-medium mb-2">
+                      Email
+                    </label>
+                    <Input
+                      id="email"
+                      type="email"
+                      value={formData.email}
+                      onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+                      required
+                    />
                   </div>
                 </div>
-                <div className="text-right">
-                  <p className="font-semibold">
-                    {user?.plan === 'FREE' ? 'R$ 0' :
-                     user?.plan === 'PRO' ? 'R$ 29' :
-                     'R$ 99'}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    {user?.plan === 'FREE' ? 'Gratuito' : 'por mês'}
-                  </p>
-                </div>
-              </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                <div className="flex items-center space-x-2">
-                  <svg className={`w-4 h-4 ${user?.plan === 'FREE' ? 'text-gray-400' : 'text-green-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  <span className={user?.plan === 'FREE' ? 'text-muted-foreground' : ''}>
-                    {user?.plan === 'FREE' ? '5 projetos' :
-                     user?.plan === 'PRO' ? '50 projetos' :
-                     'Projetos ilimitados'}
-                  </span>
+                <div className="border-t pt-6">
+                  <h3 className="text-md font-semibold mb-4">Alterar Senha</h3>
+                  <div className="space-y-4">
+                    <div>
+                      <label htmlFor="currentPassword" className="block text-sm font-medium mb-2">
+                        Senha Atual
+                      </label>
+                      <Input
+                        id="currentPassword"
+                        type="password"
+                        value={formData.currentPassword}
+                        onChange={(e) => setFormData(prev => ({ ...prev, currentPassword: e.target.value }))}
+                        placeholder="Deixe em branco para não alterar"
+                      />
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label htmlFor="newPassword" className="block text-sm font-medium mb-2">
+                          Nova Senha
+                        </label>
+                        <Input
+                          id="newPassword"
+                          type="password"
+                          value={formData.newPassword}
+                          onChange={(e) => setFormData(prev => ({ ...prev, newPassword: e.target.value }))}
+                          placeholder="Mínimo 6 caracteres"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label htmlFor="confirmPassword" className="block text-sm font-medium mb-2">
+                          Confirmar Nova Senha
+                        </label>
+                        <Input
+                          id="confirmPassword"
+                          type="password"
+                          value={formData.confirmPassword}
+                          onChange={(e) => setFormData(prev => ({ ...prev, confirmPassword: e.target.value }))}
+                          placeholder="Confirme a nova senha"
+                        />
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <svg className={`w-4 h-4 ${user?.plan === 'FREE' ? 'text-gray-400' : 'text-green-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  <span className={user?.plan === 'FREE' ? 'text-muted-foreground' : ''}>
-                    {user?.plan === 'FREE' ? '1GB storage' :
-                     user?.plan === 'PRO' ? '100GB storage' :
-                     'Storage ilimitado'}
-                  </span>
+
+                <div className="flex justify-end">
+                  <Button type="submit">
+                    Salvar Alterações
+                  </Button>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <svg className={`w-4 h-4 ${user?.plan === 'FREE' ? 'text-gray-400' : 'text-green-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  <span className={user?.plan === 'FREE' ? 'text-muted-foreground' : ''}>
-                    {user?.plan === 'FREE' ? 'Templates básicos' :
-                     user?.plan === 'PRO' ? 'Templates premium' :
-                     'Templates personalizados'}
-                  </span>
-                </div>
-              </div>
+              </form>
             </div>
           </div>
 
-          {/* Profile Information Card */}
-          <div className="rounded-xl border bg-card p-6">
-            <div className="flex items-center space-x-4 mb-6">
-              <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center">
-                <svg className="w-8 h-8 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                </svg>
-              </div>
-              <div>
-                <h2 className="text-lg font-semibold">Informações Pessoais</h2>
-                <p className="text-sm text-muted-foreground">Atualize seus dados pessoais</p>
-              </div>
-            </div>
-
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label htmlFor="name" className="text-sm font-medium">
-                    Nome Completo
-                  </label>
-                  <input
-                    type="text"
-                    id="name"
-                    name="name"
-                    value={formData.name}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label htmlFor="email" className="text-sm font-medium">
-                    Email
-                  </label>
-                  <input
-                    type="email"
-                    id="email"
-                    name="email"
-                    value={formData.email}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
-                    required
-                  />
-                </div>
-              </div>
-
-              {/* Password Section */}
-              <div className="border-t pt-6">
-                <h3 className="text-base font-semibold mb-4">Alterar Senha</h3>
+          {/* Plan Information */}
+          <div className="space-y-6">
+            {/* Current Plan */}
+            {user && getPlanDetails && (
+              <div className="rounded-xl border bg-card p-6">
+                <h2 className="text-lg font-semibold mb-4">Plano Atual</h2>
+                
                 <div className="space-y-4">
-                  <div className="space-y-2">
-                    <label htmlFor="currentPassword" className="text-sm font-medium">
-                      Senha Atual
-                    </label>
-                    <input
-                      type="password"
-                      id="currentPassword"
-                      name="currentPassword"
-                      value={formData.currentPassword}
-                      onChange={handleInputChange}
-                      className="w-full px-3 py-2 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
-                      placeholder="Digite sua senha atual para alterar"
-                    />
+                  <div>
+                    <h3 className="font-semibold text-primary">{getPlanDetails(user.plan).name}</h3>
+                    <p className="text-sm text-muted-foreground">{getPlanDetails(user.plan).description}</p>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <label htmlFor="newPassword" className="text-sm font-medium">
-                        Nova Senha
-                      </label>
-                      <input
-                        type="password"
-                        id="newPassword"
-                        name="newPassword"
-                        value={formData.newPassword}
-                        onChange={handleInputChange}
-                        className="w-full px-3 py-2 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
-                        placeholder="Mínimo 6 caracteres"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label htmlFor="confirmPassword" className="text-sm font-medium">
-                        Confirmar Nova Senha
-                      </label>
-                      <input
-                        type="password"
-                        id="confirmPassword"
-                        name="confirmPassword"
-                        value={formData.confirmPassword}
-                        onChange={handleInputChange}
-                        className="w-full px-3 py-2 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
-                        placeholder="Repita a nova senha"
-                      />
-                    </div>
+                  
+                  <div className="text-lg font-semibold">
+                    {getPlanDetails(user.plan).price}
                   </div>
+                  
+                  <div>
+                    <h4 className="text-sm font-medium mb-2">Recursos inclusos:</h4>
+                    <ul className="text-sm text-muted-foreground space-y-1">
+                      {getPlanDetails(user.plan).features.map((feature, index) => (
+                        <li key={index} className="flex items-center">
+                          <svg className="w-4 h-4 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                          {feature}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                  
+                  {user.plan !== 'ENTERPRISE' && (
+                    <Link href="/plans">
+                      <Button className="w-full">
+                        Fazer Upgrade
+                      </Button>
+                    </Link>
+                  )}
                 </div>
               </div>
+            )}
 
-              {/* Action Buttons */}
-              <div className="flex flex-col sm:flex-row justify-between gap-4 pt-6 border-t">
-                <button
-                  type="button"
-                  onClick={handleDeleteAccount}
-                  className="px-4 py-2 text-sm font-medium text-destructive hover:text-destructive-foreground hover:bg-destructive rounded-lg border border-destructive/20 hover:border-destructive transition-colors"
-                >
-                  Excluir Conta
-                </button>
-                <button
-                  type="submit"
-                  disabled={isLoading}
-                  className="px-6 py-2 text-sm font-medium text-primary-foreground bg-primary hover:bg-primary/90 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isLoading ? 'Salvando...' : 'Salvar Alterações'}
-                </button>
+            {/* Account Info */}
+            {user && (
+              <div className="rounded-xl border bg-card p-6">
+                <h2 className="text-lg font-semibold mb-4">Informações da Conta</h2>
+                
+                <div className="space-y-3 text-sm">
+                  <div>
+                    <span className="text-muted-foreground">Membro desde:</span>
+                    <div className="font-medium">
+                      {new Date(user.createdAt).toLocaleDateString('pt-BR', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric'
+                      })}
+                    </div>
+                  </div>
+                  
+                  {user.lastLogin && (
+                    <div>
+                      <span className="text-muted-foreground">Último acesso:</span>
+                      <div className="font-medium">
+                        {new Date(user.lastLogin).toLocaleDateString('pt-BR', {
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
-            </form>
+            )}
           </div>
         </div>
       </main>

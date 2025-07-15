@@ -3,16 +3,20 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { Button } from '@/components/ui/button'
 
 interface UserProfile {
   id: string
-  name: string
   email: string
+  name: string
+  avatarUrl?: string
   plan: 'FREE' | 'PRO' | 'ENTERPRISE'
+  createdAt: string
+  lastLogin?: string
 }
 
 interface PlanFeature {
-  name: string
+  text: string
   included: boolean
 }
 
@@ -34,16 +38,16 @@ const plans: Plan[] = [
     name: 'Gratuito',
     price: 0,
     period: 'Sempre gratuito',
-    description: 'Perfeito para começar e explorar as funcionalidades básicas',
+    description: 'Perfeito para começar',
     features: [
-      { name: 'Até 5 projetos', included: true },
-      { name: '1GB de armazenamento', included: true },
-      { name: 'Templates básicos', included: true },
-      { name: 'Exportação em PDF', included: true },
-      { name: 'Suporte por email', included: true },
-      { name: 'Templates premium', included: false },
-      { name: 'Colaboração em equipe', included: false },
-      { name: 'API personalizada', included: false },
+      { text: 'Até 3 álbuns', included: true },
+      { text: 'Até 50 fotos por álbum', included: true },
+      { text: 'Templates básicos', included: true },
+      { text: 'Exportação em PDF', included: true },
+      { text: 'Suporte por email', included: false },
+      { text: 'Templates premium', included: false },
+      { text: 'Álbuns ilimitados', included: false },
+      { text: 'API personalizada', included: false }
     ],
     buttonText: 'Plano Atual',
     buttonVariant: 'outline'
@@ -51,38 +55,38 @@ const plans: Plan[] = [
   {
     id: 'PRO',
     name: 'Pro',
-    price: 29,
+    price: 29.90,
     period: 'por mês',
-    description: 'Ideal para fotógrafos profissionais e pequenos estúdios',
-    features: [
-      { name: 'Até 50 projetos', included: true },
-      { name: '100GB de armazenamento', included: true },
-      { name: 'Todos os templates', included: true },
-      { name: 'Exportação em alta qualidade', included: true },
-      { name: 'Suporte prioritário', included: true },
-      { name: 'Templates premium', included: true },
-      { name: 'Marca personalizada', included: true },
-      { name: 'API personalizada', included: false },
-    ],
+    description: 'Para usuários avançados',
     popular: true,
+    features: [
+      { text: 'Álbuns ilimitados', included: true },
+      { text: 'Até 500 fotos por álbum', included: true },
+      { text: 'Todos os templates', included: true },
+      { text: 'Exportação em alta qualidade', included: true },
+      { text: 'Suporte prioritário', included: true },
+      { text: 'Backup automático', included: true },
+      { text: 'Colaboração em equipe', included: false },
+      { text: 'API personalizada', included: false }
+    ],
     buttonText: 'Fazer Upgrade',
     buttonVariant: 'default'
   },
   {
     id: 'ENTERPRISE',
     name: 'Enterprise',
-    price: 99,
+    price: 99.90,
     period: 'por mês',
-    description: 'Solução completa para grandes estúdios e empresas',
+    description: 'Para empresas e equipes',
     features: [
-      { name: 'Projetos ilimitados', included: true },
-      { name: 'Armazenamento ilimitado', included: true },
-      { name: 'Templates personalizados', included: true },
-      { name: 'Exportação profissional', included: true },
-      { name: 'Suporte dedicado 24/7', included: true },
-      { name: 'Colaboração em equipe', included: true },
-      { name: 'Marca personalizada', included: true },
-      { name: 'API personalizada', included: true },
+      { text: 'Tudo do plano Pro', included: true },
+      { text: 'Fotos ilimitadas por álbum', included: true },
+      { text: 'Templates personalizados', included: true },
+      { text: 'API personalizada', included: true },
+      { text: 'Suporte dedicado', included: true },
+      { text: 'Colaboração em equipe', included: true },
+      { text: 'Analytics avançados', included: true },
+      { text: 'SLA garantido', included: true }
     ],
     buttonText: 'Contatar Vendas',
     buttonVariant: 'premium'
@@ -116,29 +120,10 @@ export default function PlansPage() {
         router.push('/auth/login')
       }
     } catch (error) {
-      console.error('Erro ao verificar autenticação:', error)
+      console.error('Error checking auth:', error)
       router.push('/auth/login')
     } finally {
       setIsLoading(false)
-    }
-  }
-
-  const handleUpgrade = async (planId: string) => {
-    if (planId === 'FREE' || planId === user?.plan) return
-
-    setUpgradeLoading(planId)
-    
-    try {
-      // Aqui você implementaria a integração com o sistema de pagamento
-      // Por enquanto, vamos simular um upgrade
-      await new Promise(resolve => setTimeout(resolve, 2000))
-      
-      alert(`Upgrade para o plano ${planId} será implementado em breve!`)
-    } catch (error) {
-      console.error('Erro no upgrade:', error)
-      alert('Erro ao processar upgrade. Tente novamente.')
-    } finally {
-      setUpgradeLoading(null)
     }
   }
 
@@ -151,9 +136,59 @@ export default function PlansPage() {
       
       document.cookie = 'auth-token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;'
       router.push('/auth/login')
-    } catch (error) {
-      console.error('Erro ao fazer logout:', error)
+    } catch (err) {
+      console.error('Logout error:', err)
     }
+  }
+
+  const handleUpgrade = async (planId: string) => {
+    setUpgradeLoading(planId)
+    
+    try {
+      // Simular upgrade (implementar integração com sistema de pagamento)
+      await new Promise(resolve => setTimeout(resolve, 2000))
+      
+      // Por enquanto, apenas simular o upgrade
+      alert(`Upgrade para o plano ${planId} será implementado em breve!`)
+      
+    } catch (error) {
+      console.error('Error upgrading plan:', error)
+      alert('Erro ao fazer upgrade. Tente novamente.')
+    } finally {
+      setUpgradeLoading(null)
+    }
+  }
+
+  const getButtonText = (plan: Plan) => {
+    if (!user) return plan.buttonText
+    
+    if (user.plan === plan.id) {
+      return 'Plano Atual'
+    } else if (user.plan === 'FREE' && plan.id !== 'FREE') {
+      return 'Fazer Upgrade'
+    } else if (user.plan === 'PRO' && plan.id === 'ENTERPRISE') {
+      return 'Fazer Upgrade'
+    } else if (user.plan === 'PRO' && plan.id === 'FREE') {
+      return 'Fazer Downgrade'
+    } else if (user.plan === 'ENTERPRISE' && plan.id !== 'ENTERPRISE') {
+      return 'Fazer Downgrade'
+    }
+    
+    return plan.buttonText
+  }
+
+  const getButtonVariant = (plan: Plan) => {
+    if (!user) return plan.buttonVariant
+    
+    if (user.plan === plan.id) {
+      return 'outline'
+    }
+    
+    return plan.buttonVariant
+  }
+
+  const isButtonDisabled = (plan: Plan) => {
+    return user?.plan === plan.id || upgradeLoading === plan.id
   }
 
   if (isLoading) {
@@ -195,12 +230,6 @@ export default function PlansPage() {
               >
                 Perfil
               </Link>
-              <Link 
-                href="/plans" 
-                className="text-sm font-medium text-primary"
-              >
-                Planos
-              </Link>
               <button
                 onClick={handleLogout}
                 className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
@@ -223,24 +252,16 @@ export default function PlansPage() {
       </nav>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-6 py-12">
+      <main className="max-w-7xl mx-auto px-6 py-8">
         {/* Header */}
         <div className="text-center mb-12">
-          <h1 className="text-3xl font-bold tracking-tight mb-4">
-            Escolha o plano ideal para você
-          </h1>
+          <h1 className="text-3xl font-bold tracking-tight mb-4">Escolha seu Plano</h1>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            Desbloqueie todo o potencial do AlbumCraft Pro com recursos avançados 
-            e suporte dedicado para levar seus projetos ao próximo nível.
+            Selecione o plano ideal para suas necessidades de criação de álbuns
           </p>
           {user && (
-            <div className="mt-6 inline-flex items-center px-4 py-2 rounded-full bg-muted text-sm">
-              <div className={`w-2 h-2 rounded-full mr-2 ${
-                user.plan === 'FREE' ? 'bg-gray-400' :
-                user.plan === 'PRO' ? 'bg-blue-500' :
-                'bg-purple-600'
-              }`}></div>
-              Plano atual: {user.plan === 'FREE' ? 'Gratuito' : user.plan === 'PRO' ? 'Pro' : 'Enterprise'}
+            <div className="mt-4 inline-flex items-center px-3 py-1 rounded-full text-sm bg-primary/10 text-primary">
+              Plano atual: <span className="font-semibold ml-1">{user.plan}</span>
             </div>
           )}
         </div>
@@ -250,14 +271,8 @@ export default function PlansPage() {
           {plans.map((plan) => (
             <div
               key={plan.id}
-              className={`relative rounded-2xl border p-8 ${
-                plan.popular 
-                  ? 'border-primary shadow-lg scale-105' 
-                  : 'border-border'
-              } ${
-                user?.plan === plan.id 
-                  ? 'bg-muted/50' 
-                  : 'bg-card'
+              className={`rounded-xl border bg-card p-8 relative ${
+                plan.popular ? 'border-primary shadow-lg scale-105' : ''
               }`}
             >
               {plan.popular && (
@@ -268,31 +283,25 @@ export default function PlansPage() {
                 </div>
               )}
 
-              {user?.plan === plan.id && (
-                <div className="absolute -top-4 right-4">
-                  <span className="bg-green-500 text-white px-3 py-1 rounded-full text-sm font-medium">
-                    Atual
-                  </span>
-                </div>
-              )}
-
               <div className="text-center mb-8">
-                <h3 className="text-xl font-semibold mb-2">{plan.name}</h3>
+                <h3 className="text-2xl font-bold mb-2">{plan.name}</h3>
+                <p className="text-muted-foreground mb-4">{plan.description}</p>
                 <div className="mb-4">
-                  <span className="text-4xl font-bold">R$ {plan.price}</span>
+                  <span className="text-4xl font-bold">
+                    {plan.price === 0 ? 'Grátis' : `R$ ${plan.price.toFixed(2).replace('.', ',')}`}
+                  </span>
                   {plan.price > 0 && (
-                    <span className="text-muted-foreground ml-1">/{plan.period.split(' ')[1]}</span>
+                    <span className="text-muted-foreground ml-2">{plan.period}</span>
                   )}
                 </div>
-                <p className="text-sm text-muted-foreground">{plan.description}</p>
               </div>
 
-              <ul className="space-y-3 mb-8">
+              <div className="space-y-4 mb-8">
                 {plan.features.map((feature, index) => (
-                  <li key={index} className="flex items-center space-x-3">
+                  <div key={index} className="flex items-center">
                     <svg 
-                      className={`w-5 h-5 ${
-                        feature.included ? 'text-green-500' : 'text-gray-300'
+                      className={`w-5 h-5 mr-3 ${
+                        feature.included ? 'text-green-500' : 'text-muted-foreground'
                       }`} 
                       fill="none" 
                       stroke="currentColor" 
@@ -305,77 +314,60 @@ export default function PlansPage() {
                         d={feature.included ? "M5 13l4 4L19 7" : "M6 18L18 6M6 6l12 12"} 
                       />
                     </svg>
-                    <span className={`text-sm ${
-                      feature.included ? '' : 'text-muted-foreground line-through'
-                    }`}>
-                      {feature.name}
+                    <span className={feature.included ? '' : 'text-muted-foreground line-through'}>
+                      {feature.text}
                     </span>
-                  </li>
+                  </div>
                 ))}
-              </ul>
+              </div>
 
-              <button
-                onClick={() => handleUpgrade(plan.id)}
-                disabled={
-                  upgradeLoading === plan.id || 
-                  user?.plan === plan.id ||
-                  (plan.id === 'FREE')
-                }
-                className={`w-full py-3 px-4 rounded-lg font-medium transition-all duration-200 ${
-                  plan.buttonVariant === 'default'
-                    ? 'bg-primary text-primary-foreground hover:bg-primary/90'
-                    : plan.buttonVariant === 'premium'
-                    ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white hover:from-purple-700 hover:to-blue-700 shadow-lg hover:shadow-xl'
-                    : 'border border-border text-muted-foreground hover:bg-muted'
-                } ${
-                  (user?.plan === plan.id || plan.id === 'FREE') 
-                    ? 'opacity-50 cursor-not-allowed' 
-                    : ''
+              <Button
+                className={`w-full ${
+                  plan.popular ? 'bg-primary hover:bg-primary/90' : ''
                 }`}
+                variant={getButtonVariant(plan)}
+                disabled={isButtonDisabled(plan)}
+                onClick={() => !isButtonDisabled(plan) && handleUpgrade(plan.id)}
               >
                 {upgradeLoading === plan.id ? (
-                  <div className="flex items-center justify-center space-x-2">
-                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-current border-t-transparent"></div>
-                    <span>Processando...</span>
+                  <div className="flex items-center">
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-current border-t-transparent mr-2"></div>
+                    Processando...
                   </div>
                 ) : (
-                  user?.plan === plan.id ? 'Plano Atual' : plan.buttonText
+                  getButtonText(plan)
                 )}
-              </button>
+              </Button>
             </div>
           ))}
         </div>
 
         {/* FAQ Section */}
-        <div className="mt-16 max-w-4xl mx-auto">
-          <h2 className="text-2xl font-bold text-center mb-8">Perguntas Frequentes</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div>
+        <div className="mt-16 text-center">
+          <h2 className="text-2xl font-bold mb-8">Perguntas Frequentes</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+            <div className="rounded-xl border bg-card p-6 text-left">
               <h3 className="font-semibold mb-2">Posso cancelar a qualquer momento?</h3>
-              <p className="text-sm text-muted-foreground">
-                Sim, você pode cancelar sua assinatura a qualquer momento. 
-                Não há taxas de cancelamento ou contratos de longo prazo.
+              <p className="text-muted-foreground text-sm">
+                Sim, você pode cancelar sua assinatura a qualquer momento. Não há taxas de cancelamento.
               </p>
             </div>
-            <div>
-              <h3 className="font-semibold mb-2">O que acontece com meus projetos se eu cancelar?</h3>
-              <p className="text-sm text-muted-foreground">
-                Seus projetos permanecerão salvos, mas você terá acesso limitado 
-                aos recursos do plano gratuito até renovar sua assinatura.
+            <div className="rounded-xl border bg-card p-6 text-left">
+              <h3 className="font-semibold mb-2">Como funciona o upgrade?</h3>
+              <p className="text-muted-foreground text-sm">
+                O upgrade é instantâneo e você terá acesso imediato a todos os recursos do novo plano.
               </p>
             </div>
-            <div>
-              <h3 className="font-semibold mb-2">Posso fazer upgrade ou downgrade do meu plano?</h3>
-              <p className="text-sm text-muted-foreground">
-                Sim, você pode alterar seu plano a qualquer momento. 
-                As mudanças entram em vigor imediatamente.
-              </p>
-            </div>
-            <div>
+            <div className="rounded-xl border bg-card p-6 text-left">
               <h3 className="font-semibold mb-2">Há desconto para pagamento anual?</h3>
-              <p className="text-sm text-muted-foreground">
-                Sim, oferecemos 20% de desconto para assinaturas anuais. 
-                Entre em contato conosco para mais detalhes.
+              <p className="text-muted-foreground text-sm">
+                Sim, oferecemos 20% de desconto para assinaturas anuais em todos os planos pagos.
+              </p>
+            </div>
+            <div className="rounded-xl border bg-card p-6 text-left">
+              <h3 className="font-semibold mb-2">Preciso de ajuda para escolher?</h3>
+              <p className="text-muted-foreground text-sm">
+                Nossa equipe está pronta para ajudar. Entre em contato conosco para uma consultoria gratuita.
               </p>
             </div>
           </div>
