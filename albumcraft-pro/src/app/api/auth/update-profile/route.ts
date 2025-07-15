@@ -49,7 +49,12 @@ export async function PUT(request: NextRequest) {
     }
 
     // Preparar dados para atualização
-    const updateData: any = {
+    const updateData: {
+      name: string;
+      email: string;
+      updatedAt: Date;
+      password?: string;
+    } = {
       name,
       email,
       updatedAt: new Date()
