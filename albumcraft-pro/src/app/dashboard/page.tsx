@@ -256,7 +256,7 @@ export default function DashboardPage() {
         {/* Quick Actions */}
         <div className="mb-8">
           <h2 className="text-lg font-semibold mb-4">Ações Rápidas</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-1 gap-4 max-w-md">
             <Link
               href="/projects/new"
               className="rounded-xl border bg-card p-6 text-center hover:bg-accent transition-colors group"
@@ -268,32 +268,6 @@ export default function DashboardPage() {
               </div>
               <h3 className="font-semibold mb-1">Novo Álbum</h3>
               <p className="text-sm text-muted-foreground">Criar um novo projeto</p>
-            </Link>
-
-            <Link
-              href="/photos/upload"
-              className="rounded-xl border bg-card p-6 text-center hover:bg-accent transition-colors group"
-            >
-              <div className="p-3 bg-green-100 rounded-lg w-fit mx-auto mb-3 group-hover:bg-green-200 transition-colors">
-                <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                </svg>
-              </div>
-              <h3 className="font-semibold mb-1">Upload de Fotos</h3>
-              <p className="text-sm text-muted-foreground">Adicionar novas imagens</p>
-            </Link>
-
-            <Link
-              href="/templates"
-              className="rounded-xl border bg-card p-6 text-center hover:bg-accent transition-colors group"
-            >
-              <div className="p-3 bg-purple-100 rounded-lg w-fit mx-auto mb-3 group-hover:bg-purple-200 transition-colors">
-                <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                </svg>
-              </div>
-              <h3 className="font-semibold mb-1">Templates</h3>
-              <p className="text-sm text-muted-foreground">Explorar layouts</p>
             </Link>
           </div>
         </div>
