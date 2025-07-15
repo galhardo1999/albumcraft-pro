@@ -23,9 +23,20 @@ enum ProjectStatus {
 }
 
 enum AlbumSize {
+  SMALL
+  MEDIUM
+  LARGE
+  EXTRA_LARGE
   SIZE_30X30
   SIZE_20X30
   CUSTOM
+}
+
+enum Template {
+  classic
+  modern
+  artistic
+  minimal
 }
 
 model User {
@@ -55,6 +66,7 @@ model Project {
   name        String
   description String?
   albumSize   AlbumSize     @map("album_size")
+  template    Template      @default(classic)
   status      ProjectStatus @default(DRAFT)
   settings    Json?
   createdAt   DateTime      @default(now()) @map("created_at")

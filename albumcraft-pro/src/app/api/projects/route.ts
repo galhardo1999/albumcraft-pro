@@ -87,6 +87,8 @@ export const POST = withAuth(async (request: NextRequest, user) => {
         name: validatedData.name,
         description: validatedData.description,
         albumSize: validatedData.albumSize,
+        template: validatedData.template || 'classic',
+        status: validatedData.status || 'DRAFT',
         settings: {
           customWidth: validatedData.customWidth,
           customHeight: validatedData.customHeight,
@@ -101,7 +103,7 @@ export const POST = withAuth(async (request: NextRequest, user) => {
     
     return NextResponse.json({
       success: true,
-      data: project
+      project: project
     }, { status: 201 })
     
   } catch (error) {
