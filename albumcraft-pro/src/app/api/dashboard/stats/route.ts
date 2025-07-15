@@ -1,15 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyAuth } from '@/lib/auth-middleware';
+import { authenticateRequest } from '@/lib/auth-middleware';
 import { prisma } from '@/lib/prisma';
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
-    const authResult = await verifyAuth(request);
-    if (!authResult.success) {
+    const user = await authenticateRequest(request);
+    if (!user) {
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
     }
 
-    const userId = authResult.user.id;
+    const userId = user.userId;
 
     // Buscar estatísticas do usuário
     const [totalProjects, activeProjects, totalPhotos, storageUsed] = await Promise.all([
