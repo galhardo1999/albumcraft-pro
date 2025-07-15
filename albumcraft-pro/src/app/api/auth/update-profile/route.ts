@@ -53,7 +53,7 @@ export async function PUT(request: NextRequest) {
       name: string;
       email: string;
       updatedAt: Date;
-      password?: string;
+      passwordHash?: string;
     } = {
       name,
       email,
@@ -75,7 +75,7 @@ export async function PUT(request: NextRequest) {
       // Buscar usuário completo para verificar senha
       const fullUser = await prisma.user.findUnique({
         where: { id: user.userId },
-        select: { password: true }
+        select: { passwordHash: true }
       })
 
       if (!fullUser) {
@@ -89,7 +89,7 @@ export async function PUT(request: NextRequest) {
       }
 
       // Verificar senha atual
-      const isCurrentPasswordValid = await bcrypt.compare(currentPassword, fullUser.password)
+      const isCurrentPasswordValid = await bcrypt.compare(currentPassword, fullUser.passwordHash)
       if (!isCurrentPasswordValid) {
         return NextResponse.json(
           {
@@ -113,7 +113,7 @@ export async function PUT(request: NextRequest) {
 
       // Hash da nova senha
       const hashedNewPassword = await bcrypt.hash(newPassword, 12)
-      updateData.password = hashedNewPassword
+      updateData.passwordHash = hashedNewPassword
     }
 
     // Atualizar usuário no banco
