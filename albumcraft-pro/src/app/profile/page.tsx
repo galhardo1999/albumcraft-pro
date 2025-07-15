@@ -1,42 +1,69 @@
-'use client';
+'use client'
 
-import { useState, useEffect, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import Link from 'next/link'
+
+interface UserProfile {
+  id: string
+  name: string
+  email: string
+}
+
+interface FormData {
+  name: string
+  email: string
+  currentPassword: string
+  newPassword: string
+  confirmPassword: string
+}
 
 export default function ProfilePage() {
-  const [formData, setFormData] = useState({
+  const [user, setUser] = useState<UserProfile | null>(null)
+  const [formData, setFormData] = useState<FormData>({
     name: '',
     email: '',
     currentPassword: '',
     newPassword: '',
     confirmPassword: ''
-  });
-  const [isLoading, setIsLoading] = useState(false);
-  const [message, setMessage] = useState('');
-  const [messageType, setMessageType] = useState<'success' | 'error'>('success');
-  const router = useRouter();
-
-  const fetchUserData = useCallback(async () => {
-    try {
-      const response = await fetch('/api/auth/me');
-      if (response.ok) {
-        const userData = await response.json();
-        setFormData({
-          name: userData.name || '',
-          email: userData.email || '',
-          currentPassword: '',
-          newPassword: '',
-          confirmPassword: ''
-        });
-      }
-    } catch (error) {
-      console.error('Erro ao buscar dados do usuário:', error);
-    }
-  }, []);
+  })
+  const [isLoading, setIsLoading] = useState(true)
+  const [message, setMessage] = useState('')
+  const [messageType, setMessageType] = useState<'success' | 'error'>('success')
+  const router = useRouter()
 
   useEffect(() => {
-    fetchUserData();
-  }, [fetchUserData]);
+    fetchUserProfile()
+  }, [])
+
+  const fetchUserProfile = async () => {
+    try {
+      const response = await fetch('/api/auth/me', {
+        credentials: 'include'
+      })
+
+      if (response.ok) {
+        const userData = await response.json()
+        if (userData.success && userData.data?.user) {
+          setUser(userData.data.user)
+          setFormData(prev => ({
+            ...prev,
+            name: userData.data.user.name,
+            email: userData.data.user.email
+          }))
+        } else {
+          router.push('/auth/login')
+        }
+      } else {
+        router.push('/auth/login')
+      }
+    } catch (error: unknown) {
+      console.error('Erro ao carregar perfil:', error)
+      router.push('/auth/login')
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -46,69 +73,80 @@ export default function ProfilePage() {
     }));
   };
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setIsLoading(true);
-    setMessage('');
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setIsLoading(true)
+    setMessage('')
 
-    // Validação de senha
+    // Validações
     if (formData.newPassword && formData.newPassword !== formData.confirmPassword) {
-      setMessage('As senhas não coincidem');
-      setMessageType('error');
-      setIsLoading(false);
-      return;
+      setMessage('As senhas não coincidem')
+      setMessageType('error')
+      setIsLoading(false)
+      return
+    }
+
+    if (formData.newPassword && !formData.currentPassword) {
+      setMessage('Digite sua senha atual para alterar a senha')
+      setMessageType('error')
+      setIsLoading(false)
+      return
     }
 
     try {
       const response = await fetch('/api/auth/update-profile', {
         method: 'PUT',
         headers: {
-          'Content-Type': 'application/json',
+          'Content-Type': 'application/json'
         },
+        credentials: 'include',
         body: JSON.stringify({
           name: formData.name,
           email: formData.email,
-          currentPassword: formData.currentPassword,
-          newPassword: formData.newPassword
-        }),
-      });
+          currentPassword: formData.currentPassword || undefined,
+          newPassword: formData.newPassword || undefined
+        })
+      })
 
-      const data = await response.json();
+      const data = await response.json()
 
       if (response.ok) {
-        setMessage('Perfil atualizado com sucesso!');
-        setMessageType('success');
-        await fetchUserData();
+        setMessage('Perfil atualizado com sucesso!')
+        setMessageType('success')
         setFormData(prev => ({
           ...prev,
           currentPassword: '',
           newPassword: '',
           confirmPassword: ''
-        }));
+        }))
+        // Atualizar dados do usuário
+        await fetchUserProfile()
       } else {
-        setMessage(data.error || 'Erro ao atualizar perfil');
-        setMessageType('error');
+        setMessage(data.error || 'Erro ao atualizar perfil')
+        setMessageType('error')
       }
     } catch (error: unknown) {
-      console.error('Erro:', error);
-      setMessage('Erro ao atualizar perfil');
-      setMessageType('error');
+      console.error('Erro:', error)
+      setMessage('Erro ao atualizar perfil')
+      setMessageType('error')
     } finally {
-      setIsLoading(false);
+      setIsLoading(false)
     }
-  };
+  }
 
   const handleDeleteAccount = async () => {
     if (!confirm('Tem certeza que deseja excluir sua conta? Esta ação não pode ser desfeita.')) {
-      return;
+      return
     }
 
     try {
       const response = await fetch('/api/auth/delete-account', {
         method: 'DELETE',
-      });
+        credentials: 'include'
+      })
 
       if (response.ok) {
+        alert('Conta excluída com sucesso')
         window.location.href = '/auth/login';
       } else {
         const data = await response.json();
@@ -124,7 +162,12 @@ export default function ProfilePage() {
 
   const handleLogout = async () => {
     try {
-      await fetch('/api/auth/logout', { method: 'POST' });
+      await fetch('/api/auth/logout', { 
+        method: 'POST',
+        credentials: 'include'
+      });
+      
+      document.cookie = 'auth-token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;'
       router.push('/auth/login');
     } catch (error: unknown) {
       console.error('Erro ao fazer logout:', error);
@@ -133,37 +176,56 @@ export default function ProfilePage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Carregando perfil...</p>
-        </div>
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent"></div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+    <div className="min-h-screen bg-background">
       {/* Navbar */}
-      <nav className="bg-white shadow-lg">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16">
-            <div className="flex items-center">
-              <h1 className="text-xl font-bold text-gray-900">AlbumCraft Pro</h1>
-            </div>
-            <div className="flex items-center space-x-4">
-              <a href="/dashboard" className="text-gray-700 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium">
+      <nav className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="flex justify-between items-center h-16">
+            {/* Logo */}
+            <Link href="/dashboard" className="flex items-center">
+              <h1 className="text-xl font-semibold tracking-tight">AlbumCraft Pro</h1>
+            </Link>
+            
+            {/* Navigation Links */}
+            <div className="hidden md:flex items-center space-x-8">
+              <Link 
+                href="/dashboard" 
+                className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+              >
                 Dashboard
-              </a>
-              <a href="/projects" className="text-gray-700 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium">
+              </Link>
+              <Link 
+                href="/projects" 
+                className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+              >
                 Meus Álbuns
-              </a>
-              <a href="/profile" className="bg-blue-100 text-blue-700 px-3 py-2 rounded-md text-sm font-medium">
+              </Link>
+              <Link 
+                href="/profile" 
+                className="text-sm font-medium text-primary"
+              >
                 Perfil
-              </a>
+              </Link>
               <button
                 onClick={handleLogout}
-                className="text-gray-700 hover:text-red-600 px-3 py-2 rounded-md text-sm font-medium"
+                className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Sair
+              </button>
+            </div>
+
+            {/* Mobile menu button */}
+            <div className="md:hidden">
+              <button
+                onClick={handleLogout}
+                className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
               >
                 Sair
               </button>
@@ -172,77 +234,78 @@ export default function ProfilePage() {
         </div>
       </nav>
 
-      <div className="max-w-4xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
-        <div className="bg-white rounded-lg shadow-xl overflow-hidden">
-          {/* Header */}
-          <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-8">
-            <div className="flex items-center">
-              <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center">
-                <svg className="w-10 h-10 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      {/* Main Content */}
+      <main className="max-w-4xl mx-auto px-6 py-8">
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-2xl font-semibold tracking-tight mb-2">Perfil</h1>
+          <p className="text-muted-foreground">Gerencie suas informações pessoais e configurações da conta</p>
+        </div>
+
+        {/* Error/Success Message */}
+        {message && (
+          <div className={`mb-6 rounded-xl border px-4 py-3 text-sm ${
+            messageType === 'success' 
+              ? 'bg-green-50 border-green-200 text-green-800' 
+              : 'bg-destructive/10 border-destructive/20 text-destructive'
+          }`}>
+            {message}
+          </div>
+        )}
+
+        <div className="space-y-6">
+          {/* Profile Information Card */}
+          <div className="rounded-xl border bg-card p-6">
+            <div className="flex items-center space-x-4 mb-6">
+              <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center">
+                <svg className="w-8 h-8 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                 </svg>
               </div>
-              <div className="ml-6">
-                <h1 className="text-3xl font-bold text-white">Meu Perfil</h1>
-                <p className="text-blue-100">Gerencie suas informações pessoais</p>
+              <div>
+                <h2 className="text-lg font-semibold">Informações Pessoais</h2>
+                <p className="text-sm text-muted-foreground">Atualize seus dados pessoais</p>
               </div>
             </div>
-          </div>
-
-          {/* Content */}
-          <div className="p-6">
-            {message && (
-              <div className={`mb-6 p-4 rounded-md ${
-                messageType === 'success' 
-                  ? 'bg-green-50 border border-green-200 text-green-800' 
-                  : 'bg-red-50 border border-red-200 text-red-800'
-              }`}>
-                {message}
-              </div>
-            )}
 
             <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Informações Pessoais */}
-              <div className="bg-gray-50 p-6 rounded-lg">
-                <h2 className="text-xl font-semibold text-gray-900 mb-4">Informações Pessoais</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
-                      Nome Completo
-                    </label>
-                    <input
-                      type="text"
-                      id="name"
-                      name="name"
-                      value={formData.name}
-                      onChange={handleInputChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                      Email
-                    </label>
-                    <input
-                      type="email"
-                      id="email"
-                      name="email"
-                      value={formData.email}
-                      onChange={handleInputChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      required
-                    />
-                  </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label htmlFor="name" className="text-sm font-medium">
+                    Nome Completo
+                  </label>
+                  <input
+                    type="text"
+                    id="name"
+                    name="name"
+                    value={formData.name}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="email" className="text-sm font-medium">
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    id="email"
+                    name="email"
+                    value={formData.email}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
+                    required
+                  />
                 </div>
               </div>
 
-              {/* Alterar Senha */}
-              <div className="bg-gray-50 p-6 rounded-lg">
-                <h2 className="text-xl font-semibold text-gray-900 mb-4">Alterar Senha</h2>
+              {/* Password Section */}
+              <div className="border-t pt-6">
+                <h3 className="text-base font-semibold mb-4">Alterar Senha</h3>
                 <div className="space-y-4">
-                  <div>
-                    <label htmlFor="currentPassword" className="block text-sm font-medium text-gray-700 mb-2">
+                  <div className="space-y-2">
+                    <label htmlFor="currentPassword" className="text-sm font-medium">
                       Senha Atual
                     </label>
                     <input
@@ -251,12 +314,13 @@ export default function ProfilePage() {
                       name="currentPassword"
                       value={formData.currentPassword}
                       onChange={handleInputChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
+                      placeholder="Digite sua senha atual para alterar"
                     />
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label htmlFor="newPassword" className="block text-sm font-medium text-gray-700 mb-2">
+                    <div className="space-y-2">
+                      <label htmlFor="newPassword" className="text-sm font-medium">
                         Nova Senha
                       </label>
                       <input
@@ -265,11 +329,12 @@ export default function ProfilePage() {
                         name="newPassword"
                         value={formData.newPassword}
                         onChange={handleInputChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-3 py-2 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
+                        placeholder="Mínimo 6 caracteres"
                       />
                     </div>
-                    <div>
-                      <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-2">
+                    <div className="space-y-2">
+                      <label htmlFor="confirmPassword" className="text-sm font-medium">
                         Confirmar Nova Senha
                       </label>
                       <input
@@ -278,26 +343,27 @@ export default function ProfilePage() {
                         name="confirmPassword"
                         value={formData.confirmPassword}
                         onChange={handleInputChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-3 py-2 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
+                        placeholder="Repita a nova senha"
                       />
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* Botões de Ação */}
-              <div className="flex justify-between">
+              {/* Action Buttons */}
+              <div className="flex flex-col sm:flex-row justify-between gap-4 pt-6 border-t">
                 <button
                   type="button"
                   onClick={handleDeleteAccount}
-                  className="px-6 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
+                  className="px-4 py-2 text-sm font-medium text-destructive hover:text-destructive-foreground hover:bg-destructive rounded-lg border border-destructive/20 hover:border-destructive transition-colors"
                 >
                   Excluir Conta
                 </button>
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                  className="px-6 py-2 text-sm font-medium text-primary-foreground bg-primary hover:bg-primary/90 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isLoading ? 'Salvando...' : 'Salvar Alterações'}
                 </button>
@@ -305,7 +371,7 @@ export default function ProfilePage() {
             </form>
           </div>
         </div>
-      </div>
+      </main>
     </div>
   );
 }

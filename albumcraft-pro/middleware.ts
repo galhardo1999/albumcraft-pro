@@ -4,7 +4,7 @@ import { jwtVerify } from 'jose'
 const secret = new TextEncoder().encode(process.env.NEXTAUTH_SECRET || 'fallback-secret')
 
 // Rotas que requerem autenticação
-const protectedRoutes = ['/dashboard', '/projects', '/photos', '/settings']
+const protectedRoutes = ['/dashboard', '/projects', '/photos', '/settings', '/profile']
 
 // Rotas de autenticação (redirecionam se já logado)
 const authRoutes = ['/auth/login', '/auth/register', '/auth/forgot-password']
