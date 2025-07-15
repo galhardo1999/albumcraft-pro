@@ -60,7 +60,7 @@ export async function GET(request: NextRequest) {
           email,
           name: name || email.split('@')[0],
           passwordHash: '', // Usuários do Google não precisam de senha
-          avatar: picture || null,
+          avatarUrl: picture || null,
           lastLogin: new Date()
         }
       })
@@ -70,7 +70,7 @@ export async function GET(request: NextRequest) {
         where: { id: user.id },
         data: {
           lastLogin: new Date(),
-          ...(picture && { avatar: picture })
+          ...(picture && { avatarUrl: picture })
         }
       })
     }

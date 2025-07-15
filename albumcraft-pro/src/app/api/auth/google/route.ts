@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
           email,
           name: name || email.split('@')[0],
           passwordHash: '', // Usuários do Google não precisam de senha
-          avatar: picture || null,
+          avatarUrl: picture || null,
           lastLogin: new Date()
         }
       })
@@ -91,7 +91,7 @@ export async function POST(request: NextRequest) {
         where: { id: user.id },
         data: {
           lastLogin: new Date(),
-          ...(picture && { avatar: picture })
+          ...(picture && { avatarUrl: picture })
         }
       })
     }
@@ -114,7 +114,7 @@ export async function POST(request: NextRequest) {
         id: user.id,
         email: user.email,
         name: user.name,
-        avatar: user.avatar
+        avatarUrl: user.avatarUrl
       }
     })
 
