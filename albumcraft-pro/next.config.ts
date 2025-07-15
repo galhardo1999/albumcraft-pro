@@ -4,8 +4,10 @@ const nextConfig: NextConfig = {
   // Otimizações para produção
   experimental: {
     optimizePackageImports: ['@radix-ui/react-slot', 'framer-motion', 'zustand'],
-    serverComponentsExternalPackages: ['@prisma/client', 'bcryptjs'],
   },
+  
+  // Pacotes externos para server components
+  serverExternalPackages: ['@prisma/client', 'bcryptjs'],
   
   // Configurações de imagem
   images: {

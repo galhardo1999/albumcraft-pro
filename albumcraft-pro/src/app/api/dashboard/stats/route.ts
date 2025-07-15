@@ -1,82 +1,59 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-import { withAuth } from '@/lib/auth-middleware'
+import { NextRequest, NextResponse } from 'next/server';
+import { verifyAuth } from '@/lib/auth-middleware';
+import { prisma } from '@/lib/prisma';
 
-async function handler(request: NextRequest, user: any) {
+export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
+    const authResult = await verifyAuth(request);
+    if (!authResult.success) {
+      return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
+    }
+
+    const userId = authResult.user.id;
+
     // Buscar estatísticas do usuário
-    const [
-      totalProjects,
-      activeProjects,
-      totalPhotos,
-      photoStats
-    ] = await Promise.all([
-      // Total de projetos
+    const [totalProjects, activeProjects, totalPhotos, storageUsed] = await Promise.all([
       prisma.project.count({
-        where: { userId: user.userId }
+        where: { userId }
       }),
-      
-      // Projetos ativos (não concluídos)
       prisma.project.count({
         where: { 
-          userId: user.userId,
-          status: { in: ['DRAFT', 'IN_PROGRESS'] }
+          userId,
+          status: 'ACTIVE'
         }
       }),
-      
-      // Total de fotos
       prisma.photo.count({
-        where: { userId: user.userId }
+        where: {
+          project: {
+            userId
+          }
+        }
       }),
-      
-      // Estatísticas de armazenamento
       prisma.photo.aggregate({
-        where: { userId: user.userId },
+        where: {
+          project: {
+            userId
+          }
+        },
         _sum: {
           fileSize: true
         }
       })
-    ])
-
-    // Calcular armazenamento usado
-    const totalBytes = photoStats._sum.fileSize || 0
-    const storageUsed = formatBytes(totalBytes)
+    ]);
 
     const stats = {
       totalProjects,
       activeProjects,
       totalPhotos,
-      storageUsed
-    }
+      storageUsed: storageUsed._sum.fileSize || 0
+    };
 
-    return NextResponse.json({
-      success: true,
-      data: stats
-    })
-
+    return NextResponse.json(stats);
   } catch (error) {
-    console.error('Dashboard stats error:', error)
+    console.error('Dashboard stats error:', error);
     return NextResponse.json(
-      {
-        success: false,
-        error: {
-          code: 'STATS_ERROR',
-          message: 'Erro ao carregar estatísticas'
-        }
-      },
+      { error: 'Erro interno do servidor' },
       { status: 500 }
-    )
+    );
   }
 }
-
-function formatBytes(bytes: number): string {
-  if (bytes === 0) return '0 B'
-  
-  const k = 1024
-  const sizes = ['B', 'KB', 'MB', 'GB', 'TB']
-  const i = Math.floor(Math.log(bytes) / Math.log(k))
-  
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
-}
-
-export const GET = withAuth(handler)

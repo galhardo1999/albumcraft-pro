@@ -90,8 +90,8 @@ export default function ResetPasswordPage() {
       setTimeout(() => {
         router.push('/auth/login')
       }, 3000)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro inesperado')
+    } catch {
+      setError('Erro ao redefinir senha. Tente novamente.')
     } finally {
       setIsLoading(false)
     }
