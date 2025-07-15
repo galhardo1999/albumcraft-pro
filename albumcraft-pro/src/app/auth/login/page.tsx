@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import GoogleLoginButton from '@/components/GoogleLoginButton'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -134,6 +135,9 @@ export default function LoginPage() {
               <span className="bg-background px-2 text-muted-foreground">ou</span>
             </div>
           </div>
+
+          {/* Google Login */}
+          <GoogleLoginButton onError={setError} />
 
           {/* Sign up link */}
           <div className="text-center text-sm">

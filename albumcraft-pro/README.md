@@ -50,6 +50,10 @@ DATABASE_URL="sua-url-do-banco"
 NEXTAUTH_SECRET="sua-chave-secreta"
 NEXTAUTH_URL="http://localhost:3000"
 
+# Google OAuth (opcional)
+GOOGLE_CLIENT_ID="seu-google-client-id"
+GOOGLE_CLIENT_SECRET="seu-google-client-secret"
+
 # Outras configurações...
 ```
 
@@ -60,6 +64,33 @@ O projeto usa PostgreSQL com Prisma ORM. Para configurar:
 1. Configure a `DATABASE_URL` no `.env.local`
 2. Execute `npx prisma generate`
 3. Execute `npx prisma db push`
+
+### Google OAuth (Opcional)
+
+Para habilitar login com Google:
+
+1. **Acesse o [Google Cloud Console](https://console.cloud.google.com/)**
+2. **Crie um novo projeto ou selecione um existente**
+3. **Habilite a Google+ API**:
+   - Vá para "APIs & Services" > "Library"
+   - Procure por "Google+ API" e habilite
+4. **Configure OAuth 2.0**:
+   - Vá para "APIs & Services" > "Credentials"
+   - Clique em "Create Credentials" > "OAuth 2.0 Client IDs"
+   - Escolha "Web application"
+   - Adicione as URLs autorizadas:
+     - **JavaScript origins**: `http://localhost:3000` (desenvolvimento)
+     - **Redirect URIs**: `http://localhost:3000/api/auth/google/callback`
+5. **Copie as credenciais**:
+   - Client ID → `GOOGLE_CLIENT_ID`
+   - Client Secret → `GOOGLE_CLIENT_SECRET`
+6. **Adicione no `.env.local`**:
+   ```env
+   GOOGLE_CLIENT_ID="seu-client-id-aqui"
+   GOOGLE_CLIENT_SECRET="seu-client-secret-aqui"
+   ```
+
+> **Nota**: Para produção, adicione também as URLs do seu domínio nas configurações do Google Cloud Console.
 
 ## 🐛 Resolução de Problemas
 

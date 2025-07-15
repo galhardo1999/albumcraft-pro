@@ -19,6 +19,8 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "framer-motion": "^12.23.5",
+    "google-auth-library": "^10.1.0",
+    "googleapis": "^152.0.0",
     "jose": "^6.0.11",
     "next": "15.4.1",
     "react": "19.1.0",
