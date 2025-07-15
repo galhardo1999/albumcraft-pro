@@ -26,11 +26,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         where: { userId }
       }),
       prisma.photo.aggregate({
-        where: {
-          project: {
-            userId
-          }
-        },
+        where: { userId },
         _sum: {
           fileSize: true
         }
