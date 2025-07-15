@@ -9,6 +9,9 @@ const nextConfig: NextConfig = {
   // Pacotes externos para server components
   serverExternalPackages: ['@prisma/client', 'bcryptjs'],
   
+  // Forçar renderização dinâmica para evitar problemas de build
+  output: 'standalone',
+  
   // Configurações de imagem
   images: {
     formats: ['image/webp', 'image/avif'],
