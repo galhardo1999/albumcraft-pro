@@ -38,54 +38,28 @@ export default function ProfilePage() {
   })
   const router = useRouter()
 
-  useEffect(() => {
-    fetchUserData()
-  }, [])
-
-  const fetchUserData = async () => {
+  const fetchUserData = useCallback(async () => {
     try {
-      setIsLoading(true)
-      
-      // Buscar dados do usuário
-      const userResponse = await fetch('/api/auth/me', {
-        credentials: 'include'
-      })
-      
-      if (!userResponse.ok) {
-        router.push('/auth/login')
-        return
+      const response = await fetch('/api/auth/me');
+      if (response.ok) {
+        const userData = await response.json();
+        setUser(userData);
+        setFormData({
+          name: userData.name || '',
+          email: userData.email || '',
+          currentPassword: '',
+          newPassword: '',
+          confirmPassword: ''
+        });
       }
-      
-      const userData = await userResponse.json()
-      setUser(userData.user)
-      setFormData({
-        name: userData.user.name,
-        email: userData.user.email,
-        currentPassword: '',
-        newPassword: '',
-        confirmPassword: ''
-      })
-
-      // Buscar estatísticas do usuário
-      const statsResponse = await fetch('/api/dashboard/stats', {
-        credentials: 'include'
-      })
-      
-      if (statsResponse.ok) {
-        const statsData = await statsResponse.json()
-        const accountAge = calculateAccountAge(userData.user.createdAt)
-        setStats({
-          ...statsData,
-          accountAge
-        })
-      }
-    } catch (err) {
-      setError('Erro ao carregar dados do perfil')
-      console.error('Profile fetch error:', err)
-    } finally {
-      setIsLoading(false)
+    } catch (error) {
+      console.error('Erro ao buscar dados do usuário:', error);
     }
-  }
+  }, []);
+
+  useEffect(() => {
+    fetchUserData();
+  }, [fetchUserData]);
 
   const calculateAccountAge = (createdAt: string) => {
     const created = new Date(createdAt)
@@ -183,6 +157,69 @@ export default function ProfilePage() {
       setSaving(false)
     }
   }
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setMessage('');
+
+    try {
+      const response = await fetch('/api/auth/update-profile', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setMessage('Perfil atualizado com sucesso!');
+        setMessageType('success');
+        await fetchUserData();
+        setFormData(prev => ({
+          ...prev,
+          currentPassword: '',
+          newPassword: '',
+          confirmPassword: ''
+        }));
+      } else {
+        setMessage(data.error || 'Erro ao atualizar perfil');
+        setMessageType('error');
+      }
+    } catch (error: unknown) {
+      console.error('Erro:', error);
+      setMessage('Erro ao atualizar perfil');
+      setMessageType('error');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!confirm('Tem certeza que deseja excluir sua conta? Esta ação não pode ser desfeita.')) {
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/auth/delete-account', {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        window.location.href = '/auth/login';
+      } else {
+        const data = await response.json();
+        setMessage(data.error || 'Erro ao excluir conta');
+        setMessageType('error');
+      }
+    } catch (error: unknown) {
+      console.error('Erro:', error);
+      setMessage('Erro ao excluir conta');
+      setMessageType('error');
+    }
+  };
 
   if (isLoading) {
     return (

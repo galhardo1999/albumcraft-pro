@@ -114,7 +114,7 @@ export async function PUT(request: NextRequest) {
       user: updatedUser
     })
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Update profile error:', error)
     return NextResponse.json(
       {

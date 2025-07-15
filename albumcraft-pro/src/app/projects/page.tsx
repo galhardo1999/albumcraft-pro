@@ -37,63 +37,53 @@ export default function ProjectsPage() {
     filterAndSortProjects()
   }, [projects, searchTerm, statusFilter, sortBy])
 
-  const fetchProjects = async () => {
+  const fetchProjects = useCallback(async () => {
     try {
-      setIsLoading(true)
-      
-      const response = await fetch('/api/projects', {
-        credentials: 'include'
-      })
-      
-      if (!response.ok) {
-        if (response.status === 401) {
-          router.push('/auth/login')
-          return
-        }
-        throw new Error('Erro ao carregar álbuns')
+      setIsLoading(true);
+      const response = await fetch('/api/projects');
+      if (response.ok) {
+        const data = await response.json();
+        setProjects(data.projects || []);
+      } else {
+        setError('Erro ao carregar projetos');
       }
-      
-      const data = await response.json()
-      setProjects(data.projects || [])
-    } catch (err: any) {
-      setError(err.message)
-      console.error('Projects fetch error:', err)
+    } catch (error: unknown) {
+      console.error('Erro ao buscar projetos:', error);
+      setError('Erro ao carregar projetos');
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  }, []);
 
-  const filterAndSortProjects = () => {
-    let filtered = [...projects]
+  const filterAndSortProjects = useCallback(() => {
+    let filtered = projects.filter(project => {
+      const matchesSearch = project.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           project.description?.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesStatus = statusFilter === 'all' || project.status === statusFilter;
+      return matchesSearch && matchesStatus;
+    });
 
-    // Filtrar por termo de busca
-    if (searchTerm) {
-      filtered = filtered.filter(project =>
-        project.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (project.description && project.description.toLowerCase().includes(searchTerm.toLowerCase()))
-      )
-    }
-
-    // Filtrar por status
-    if (statusFilter !== 'ALL') {
-      filtered = filtered.filter(project => project.status === statusFilter)
-    }
-
-    // Ordenar
     filtered.sort((a, b) => {
-      switch (sortBy) {
-        case 'name':
-          return a.name.localeCompare(b.name)
-        case 'createdAt':
-          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-        case 'updatedAt':
-        default:
-          return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+      if (sortBy === 'name') {
+        return a.name.localeCompare(b.name);
+      } else if (sortBy === 'created') {
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      } else if (sortBy === 'updated') {
+        return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
       }
-    })
+      return 0;
+    });
 
-    setFilteredProjects(filtered)
-  }
+    setFilteredProjects(filtered);
+  }, [projects, searchTerm, statusFilter, sortBy]);
+
+  useEffect(() => {
+    fetchProjects();
+  }, [fetchProjects]);
+
+  useEffect(() => {
+    filterAndSortProjects();
+  }, [filterAndSortProjects]);
 
   const handleLogout = async () => {
     try {
@@ -237,7 +227,7 @@ export default function ProjectsPage() {
             <div className="flex items-center space-x-4">
               <div className="p-2 bg-primary/10 rounded-lg">
                 <svg className="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                 </svg>
               </div>
               <div>
