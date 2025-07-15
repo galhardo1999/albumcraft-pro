@@ -19,7 +19,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       prisma.project.count({
         where: { 
           userId,
-          status: 'ACTIVE'
+          status: { in: ['DRAFT', 'IN_PROGRESS'] }
         }
       }),
       prisma.photo.count({
