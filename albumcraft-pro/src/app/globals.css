@@ -1,0 +1,80 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  /* Cores minimalistas e sofisticadas */
+  --color-background: oklch(0.99 0 0);
+  --color-foreground: oklch(0.15 0.006 285.82);
+  --color-card: oklch(1 0 0);
+  --color-card-foreground: oklch(0.15 0.006 285.82);
+  --color-popover: oklch(1 0 0);
+  --color-popover-foreground: oklch(0.15 0.006 285.82);
+  --color-primary: oklch(0.24 0.014 285.82);
+  --color-primary-foreground: oklch(0.98 0 0);
+  --color-secondary: oklch(0.96 0.006 285.82);
+  --color-secondary-foreground: oklch(0.24 0.014 285.82);
+  --color-muted: oklch(0.96 0.006 285.82);
+  --color-muted-foreground: oklch(0.46 0.006 285.82);
+  --color-accent: oklch(0.96 0.006 285.82);
+  --color-accent-foreground: oklch(0.24 0.014 285.82);
+  --color-destructive: oklch(0.6 0.2 29.23);
+  --color-destructive-foreground: oklch(0.98 0 0);
+  --color-border: oklch(0.9 0.006 285.82);
+  --color-input: oklch(0.9 0.006 285.82);
+  --color-ring: oklch(0.24 0.014 285.82);
+  --radius: 0.75rem;
+}
+
+@layer base {
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+    line-height: 1.6;
+    letter-spacing: -0.01em;
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    font-weight: 600;
+    line-height: 1.2;
+    letter-spacing: -0.025em;
+  }
+  
+  /* Smooth scrolling */
+  html {
+    scroll-behavior: smooth;
+  }
+  
+  /* Focus styles para acessibilidade */
+  *:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--color-ring), 0 0 0 4px var(--color-background);
+  }
+  
+  /* Animações suaves */
+  * {
+    transition: color 0.15s ease-in-out, background-color 0.15s ease-in-out, border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out, transform 0.15s ease-in-out;
+  }
+}
+
+@layer components {
+  /* Componentes utilitários para o design minimalista */
+  .glass-effect {
+    background-color: rgba(255, 255, 255, 0.8);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(0, 0, 0, 0.1);
+  }
+  
+  .minimal-shadow {
+    box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+  }
+  
+  .minimal-shadow-lg {
+    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  }
+  
+  .text-balance {
+    text-wrap: balance;
+  }
+}
