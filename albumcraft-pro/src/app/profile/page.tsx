@@ -3,14 +3,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 
-interface User {
-  id: string;
-  name: string;
-  email: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
 export default function ProfilePage() {
   const [formData, setFormData] = useState({
     name: '',

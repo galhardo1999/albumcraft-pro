@@ -72,8 +72,24 @@ export async function PUT(request: NextRequest) {
         )
       }
 
+      // Buscar usuário completo para verificar senha
+      const fullUser = await prisma.user.findUnique({
+        where: { id: user.userId },
+        select: { password: true }
+      })
+
+      if (!fullUser) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'Usuário não encontrado'
+          },
+          { status: 404 }
+        )
+      }
+
       // Verificar senha atual
-      const isCurrentPasswordValid = await bcrypt.compare(currentPassword, user.password)
+      const isCurrentPasswordValid = await bcrypt.compare(currentPassword, fullUser.password)
       if (!isCurrentPasswordValid) {
         return NextResponse.json(
           {
