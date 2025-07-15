@@ -23,11 +23,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         }
       }),
       prisma.photo.count({
-        where: {
-          project: {
-            userId
-          }
-        }
+        where: { userId }
       }),
       prisma.photo.aggregate({
         where: {
