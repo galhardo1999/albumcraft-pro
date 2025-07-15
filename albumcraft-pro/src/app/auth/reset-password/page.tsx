@@ -42,7 +42,7 @@ export default function ResetPasswordPage() {
           setTokenValid(false)
           setError('Link de recuperação inválido ou expirado')
         }
-      } catch (err) {
+      } catch {
         setTokenValid(false)
         setError('Erro ao verificar link de recuperação')
       }
