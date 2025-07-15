@@ -29,14 +29,6 @@ export default function ProjectsPage() {
   const [sortBy, setSortBy] = useState('updatedAt')
   const router = useRouter()
 
-  useEffect(() => {
-    fetchProjects()
-  }, [])
-
-  useEffect(() => {
-    filterAndSortProjects()
-  }, [projects, searchTerm, statusFilter, sortBy])
-
   const fetchProjects = useCallback(async () => {
     try {
       setIsLoading(true);
@@ -115,9 +107,9 @@ export default function ProjectsPage() {
       case 'COMPLETED':
         return 'Concluído'
       case 'IN_PROGRESS':
-        return 'Em Progresso'
+        return 'Finalizado'
       default:
-        return 'Rascunho'
+        return 'Em Andamento'
     }
   }
 
@@ -231,7 +223,7 @@ export default function ProjectsPage() {
                 </svg>
               </div>
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Total</p>
+                <p className="text-sm font-medium text-muted-foreground">Álbuns Criados</p>
                 <p className="text-2xl font-semibold">{getStatusCount('ALL')}</p>
               </div>
             </div>
@@ -245,7 +237,7 @@ export default function ProjectsPage() {
                 </svg>
               </div>
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Rascunhos</p>
+                <p className="text-sm font-medium text-muted-foreground">Em Andamento</p>
                 <p className="text-2xl font-semibold">{getStatusCount('DRAFT')}</p>
               </div>
             </div>
@@ -259,7 +251,7 @@ export default function ProjectsPage() {
                 </svg>
               </div>
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Em Progresso</p>
+                <p className="text-sm font-medium text-muted-foreground">Finalizados</p>
                 <p className="text-2xl font-semibold">{getStatusCount('IN_PROGRESS')}</p>
               </div>
             </div>
@@ -301,8 +293,8 @@ export default function ProjectsPage() {
                 className="px-3 py-2 border rounded-lg bg-background text-sm"
               >
                 <option value="ALL">Todos os Status</option>
-                <option value="DRAFT">Rascunhos</option>
-                <option value="IN_PROGRESS">Em Progresso</option>
+                <option value="DRAFT">Em Andamento</option>
+                <option value="IN_PROGRESS">Finalizados</option>
                 <option value="COMPLETED">Concluídos</option>
               </select>
 

@@ -12,7 +12,6 @@ interface User {
 }
 
 export default function ProfilePage() {
-  const [user, setUser] = useState<User | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -30,7 +29,6 @@ export default function ProfilePage() {
       const response = await fetch('/api/auth/me');
       if (response.ok) {
         const userData = await response.json();
-        setUser(userData);
         setFormData({
           name: userData.name || '',
           email: userData.email || '',

@@ -37,7 +37,7 @@ export async function PUT(request: NextRequest) {
         where: { email }
       })
 
-      if (existingUser && existingUser.id !== user.id) {
+      if (existingUser && existingUser.id !== user.userId) {
         return NextResponse.json(
           {
             success: false,
@@ -102,7 +102,7 @@ export async function PUT(request: NextRequest) {
 
     // Atualizar usuário no banco
     const updatedUser = await prisma.user.update({
-      where: { id: user.id },
+      where: { id: user.userId },
       data: updateData,
       select: {
         id: true,
