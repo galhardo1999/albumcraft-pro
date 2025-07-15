@@ -8,6 +8,7 @@ interface UserProfile {
   id: string
   name: string
   email: string
+  plan: 'FREE' | 'PRO' | 'ENTERPRISE'
 }
 
 interface FormData {
@@ -254,6 +255,98 @@ export default function ProfilePage() {
         )}
 
         <div className="space-y-6">
+          {/* Plan Information Card */}
+          <div className="rounded-xl border bg-card p-6">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center space-x-4">
+                <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-blue-600 rounded-full flex items-center justify-center">
+                  <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                  </svg>
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold">Plano Atual</h2>
+                  <p className="text-sm text-muted-foreground">Gerencie sua assinatura</p>
+                </div>
+              </div>
+              {user?.plan !== 'ENTERPRISE' && (
+                <Link
+                  href="/plans"
+                  className="px-4 py-2 text-sm font-medium text-primary-foreground bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl"
+                >
+                  Fazer Upgrade
+                </Link>
+              )}
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50">
+                <div className="flex items-center space-x-3">
+                  <div className={`w-3 h-3 rounded-full ${
+                    user?.plan === 'FREE' ? 'bg-gray-400' :
+                    user?.plan === 'PRO' ? 'bg-blue-500' :
+                    'bg-purple-600'
+                  }`}></div>
+                  <div>
+                    <p className="font-semibold">
+                      {user?.plan === 'FREE' ? 'Plano Gratuito' :
+                       user?.plan === 'PRO' ? 'Plano Pro' :
+                       'Plano Enterprise'}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {user?.plan === 'FREE' ? 'Recursos básicos para começar' :
+                       user?.plan === 'PRO' ? 'Recursos avançados para profissionais' :
+                       'Recursos completos para empresas'}
+                    </p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="font-semibold">
+                    {user?.plan === 'FREE' ? 'R$ 0' :
+                     user?.plan === 'PRO' ? 'R$ 29' :
+                     'R$ 99'}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    {user?.plan === 'FREE' ? 'Gratuito' : 'por mês'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                <div className="flex items-center space-x-2">
+                  <svg className={`w-4 h-4 ${user?.plan === 'FREE' ? 'text-gray-400' : 'text-green-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  <span className={user?.plan === 'FREE' ? 'text-muted-foreground' : ''}>
+                    {user?.plan === 'FREE' ? '5 projetos' :
+                     user?.plan === 'PRO' ? '50 projetos' :
+                     'Projetos ilimitados'}
+                  </span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <svg className={`w-4 h-4 ${user?.plan === 'FREE' ? 'text-gray-400' : 'text-green-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  <span className={user?.plan === 'FREE' ? 'text-muted-foreground' : ''}>
+                    {user?.plan === 'FREE' ? '1GB storage' :
+                     user?.plan === 'PRO' ? '100GB storage' :
+                     'Storage ilimitado'}
+                  </span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <svg className={`w-4 h-4 ${user?.plan === 'FREE' ? 'text-gray-400' : 'text-green-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  <span className={user?.plan === 'FREE' ? 'text-muted-foreground' : ''}>
+                    {user?.plan === 'FREE' ? 'Templates básicos' :
+                     user?.plan === 'PRO' ? 'Templates premium' :
+                     'Templates personalizados'}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* Profile Information Card */}
           <div className="rounded-xl border bg-card p-6">
             <div className="flex items-center space-x-4 mb-6">
