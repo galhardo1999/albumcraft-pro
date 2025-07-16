@@ -35,7 +35,7 @@ export default function ProjectsPage() {
       const response = await fetch('/api/projects');
       if (response.ok) {
         const data = await response.json();
-        setProjects(data.projects || []);
+        setProjects(data.data || []);
       } else {
         setError('Erro ao carregar projetos');
       }
@@ -51,16 +51,16 @@ export default function ProjectsPage() {
     const filtered = projects.filter(project => {
       const matchesSearch = project.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                            project.description?.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesStatus = statusFilter === 'all' || project.status === statusFilter;
+      const matchesStatus = statusFilter === 'ALL' || project.status === statusFilter;
       return matchesSearch && matchesStatus;
     });
 
     filtered.sort((a, b) => {
       if (sortBy === 'name') {
         return a.name.localeCompare(b.name);
-      } else if (sortBy === 'created') {
+      } else if (sortBy === 'createdAt') {
         return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-      } else if (sortBy === 'updated') {
+      } else if (sortBy === 'updatedAt') {
         return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
       }
       return 0;
@@ -119,6 +119,16 @@ export default function ProjectsPage() {
         return '30x30cm'
       case 'SIZE_20X30':
         return '20x30cm'
+      case 'SMALL':
+        return '15x20cm'
+      case 'MEDIUM':
+        return '20x30cm'
+      case 'LARGE':
+        return '30x40cm'
+      case 'EXTRA_LARGE':
+        return '40x50cm'
+      case 'CUSTOM':
+        return 'Personalizado'
       default:
         return 'Personalizado'
     }
