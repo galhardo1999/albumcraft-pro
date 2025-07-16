@@ -74,6 +74,7 @@ model Project {
   template     Template      @default(classic)
   status       ProjectStatus @default(DRAFT)
   creationType CreationType  @map("creation_type") @default(SINGLE)
+  group        String?       // Nome do grupo (evento, escola, etc.)
   settings     Json?
   createdAt    DateTime      @default(now()) @map("created_at")
   updatedAt    DateTime      @updatedAt @map("updated_at")

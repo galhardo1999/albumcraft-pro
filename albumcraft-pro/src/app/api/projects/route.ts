@@ -90,6 +90,7 @@ export const POST = withAuth(async (request: NextRequest, user) => {
         template: validatedData.template || 'classic',
         status: validatedData.status || 'DRAFT',
         creationType: validatedData.creationType || 'SINGLE',
+        group: validatedData.group,
         settings: {
           customWidth: validatedData.customWidth,
           customHeight: validatedData.customHeight,

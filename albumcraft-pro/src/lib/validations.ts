@@ -33,6 +33,7 @@ export const CreateProjectSchema = z.object({
   template: z.enum(['classic', 'modern', 'artistic', 'minimal']).optional(),
   status: z.enum(['DRAFT', 'IN_PROGRESS', 'COMPLETED']).optional(),
   creationType: z.enum(['SINGLE', 'BATCH']).optional(),
+  group: z.string().max(100, 'Nome do grupo muito longo').optional(),
   customWidth: z.number().positive().optional(),
   customHeight: z.number().positive().optional(),
 })

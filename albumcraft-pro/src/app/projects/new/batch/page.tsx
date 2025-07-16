@@ -16,6 +16,7 @@ interface AlbumData {
 
 export default function BatchAlbumsPage() {
   const router = useRouter()
+  const [groupName, setGroupName] = useState('')
   const [albums, setAlbums] = useState<AlbumData[]>([
     { id: '1', name: '', description: '', albumSize: 'MEDIUM', template: 'classic' },
     { id: '2', name: '', description: '', albumSize: 'MEDIUM', template: 'classic' },
@@ -75,6 +76,11 @@ export default function BatchAlbumsPage() {
       return
     }
 
+    if (!groupName.trim()) {
+      setError('Nome do grupo é obrigatório para criação')
+      return
+    }
+
     setIsLoading(true)
     setError('')
 
@@ -92,7 +98,8 @@ export default function BatchAlbumsPage() {
             albumSize: album.albumSize,
             template: album.template,
             status: 'DRAFT',
-            creationType: 'BATCH'
+            creationType: 'BATCH',
+            group: groupName.trim()
           })
         })
       )
@@ -202,6 +209,26 @@ export default function BatchAlbumsPage() {
             {error}
           </div>
         )}
+
+        {/* Group Configuration */}
+        <div className="rounded-xl border bg-card p-6 mb-8">
+          <h2 className="text-xl font-semibold mb-4">Configuração do Grupo</h2>
+          <div className="max-w-md">
+            <label className="block text-sm font-medium mb-2">
+              Nome do Grupo *
+            </label>
+            <Input
+              type="text"
+              value={groupName}
+              onChange={(e) => setGroupName(e.target.value)}
+              placeholder="Ex: Evento Escolar, Formatura 2024, Casamento Silva..."
+              className="w-full"
+            />
+            <p className="text-xs text-muted-foreground mt-2">
+              Este nome será usado para agrupar todos os álbuns criados nesta sessão
+            </p>
+          </div>
+        </div>
 
         {/* Bulk Actions */}
         <div className="rounded-xl border bg-card p-6 mb-8">

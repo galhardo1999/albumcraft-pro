@@ -13,6 +13,7 @@ interface Project {
   albumSize: string
   status: string
   creationType: string
+  group?: string
   createdAt: string
   updatedAt: string
   _count: {
@@ -32,6 +33,8 @@ export default function ProjectsPage() {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false)
   const [projectToDelete, setProjectToDelete] = useState<Project | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
+  const [viewMode, setViewMode] = useState<'list' | 'groups'>('list')
   const router = useRouter()
 
   const fetchProjects = useCallback(async () => {
@@ -185,6 +188,48 @@ export default function ProjectsPage() {
     setProjectToDelete(null)
   }
 
+  // Funções para gerenciamento de grupos
+  const toggleGroup = (groupName: string) => {
+    const newExpandedGroups = new Set(expandedGroups)
+    if (newExpandedGroups.has(groupName)) {
+      newExpandedGroups.delete(groupName)
+    } else {
+      newExpandedGroups.add(groupName)
+    }
+    setExpandedGroups(newExpandedGroups)
+  }
+
+  const getGroupedProjects = () => {
+    const grouped: { [key: string]: Project[] } = {}
+    const ungrouped: Project[] = []
+
+    filteredProjects.forEach(project => {
+      if (project.group && project.creationType === 'BATCH') {
+        if (!grouped[project.group]) {
+          grouped[project.group] = []
+        }
+        grouped[project.group].push(project)
+      } else {
+        ungrouped.push(project)
+      }
+    })
+
+    return { grouped, ungrouped }
+  }
+
+  const getGroupCount = () => {
+    const groups = new Set(projects.filter(p => p.group && p.creationType === 'BATCH').map(p => p.group))
+    return groups.size
+  }
+
+  // Detectar automaticamente se deve mostrar visualização por grupos
+  useEffect(() => {
+    const hasGroups = projects.some(p => p.group && p.creationType === 'BATCH')
+    if (hasGroups && viewMode === 'list') {
+      setViewMode('groups')
+    }
+  }, [projects, viewMode])
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -270,7 +315,7 @@ export default function ProjectsPage() {
         </div>
 
         {/* Stats Overview */}
-        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-4 mb-8">
           <div className="rounded-xl border bg-card p-6">
             <div className="flex items-center space-x-4">
               <div className="p-2 bg-primary/10 rounded-lg">
@@ -309,6 +354,20 @@ export default function ProjectsPage() {
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Em Lote</p>
                 <p className="text-2xl font-semibold">{getCreationTypeCount('BATCH')}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-xl border bg-card p-6">
+            <div className="flex items-center space-x-4">
+              <div className="p-2 bg-yellow-100 rounded-lg">
+                <svg className="w-5 h-5 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                </svg>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Grupos</p>
+                <p className="text-2xl font-semibold">{getGroupCount()}</p>
               </div>
             </div>
           </div>
@@ -434,69 +493,208 @@ export default function ProjectsPage() {
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredProjects.map((project) => (
-              <div key={project.id} className="rounded-xl border bg-card hover:bg-accent/50 transition-colors group">
-                <div className="p-6">
-                  <div className="flex justify-between items-start mb-4">
-                    <h3 className="font-semibold text-lg truncate group-hover:text-primary transition-colors">
-                      {project.name}
-                    </h3>
-                    <div className="flex items-center gap-2">
-                      <span className={`px-2 py-1 text-xs font-medium rounded-md border ${getStatusColor(project.status)}`}>
-                        {getStatusText(project.status)}
-                      </span>
-                      <button
-                        onClick={() => handleDeleteClick(project)}
-                        className="p-1 text-muted-foreground hover:text-destructive transition-colors opacity-0 group-hover:opacity-100"
-                        title="Excluir álbum"
+          <div className="space-y-8">
+            {(() => {
+              const { grouped, ungrouped } = getGroupedProjects()
+              
+              return (
+                <>
+                  {/* Grupos */}
+                  {Object.entries(grouped).map(([groupName, groupProjects]) => (
+                    <div key={groupName} className="space-y-4">
+                      {/* Cabeçalho do Grupo */}
+                      <div 
+                        className="flex items-center justify-between p-4 rounded-xl border bg-card hover:bg-accent/50 transition-colors cursor-pointer"
+                        onClick={() => toggleGroup(groupName)}
                       >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
-                      </button>
+                        <div className="flex items-center space-x-3">
+                          <div className="p-2 bg-yellow-100 rounded-lg">
+                            <svg className="w-5 h-5 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                            </svg>
+                          </div>
+                          <div>
+                            <h3 className="text-lg font-semibold">{groupName}</h3>
+                            <p className="text-sm text-muted-foreground">
+                              {groupProjects.length} álbum{groupProjects.length !== 1 ? 's' : ''}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <span className="text-sm text-muted-foreground">
+                            {expandedGroups.has(groupName) ? 'Recolher' : 'Expandir'}
+                          </span>
+                          <svg 
+                            className={`w-5 h-5 text-muted-foreground transition-transform ${
+                              expandedGroups.has(groupName) ? 'rotate-180' : ''
+                            }`} 
+                            fill="none" 
+                            stroke="currentColor" 
+                            viewBox="0 0 24 24"
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </div>
+                      </div>
+
+                      {/* Álbuns do Grupo */}
+                      {expandedGroups.has(groupName) && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 ml-4">
+                          {groupProjects.map((project) => (
+                            <div key={project.id} className="rounded-xl border bg-card hover:bg-accent/50 transition-colors group">
+                              <div className="p-6">
+                                <div className="flex justify-between items-start mb-4">
+                                  <h3 className="font-semibold text-lg truncate group-hover:text-primary transition-colors">
+                                    {project.name}
+                                  </h3>
+                                  <div className="flex items-center gap-2">
+                                    <span className={`px-2 py-1 text-xs font-medium rounded-md border ${getStatusColor(project.status)}`}>
+                                      {getStatusText(project.status)}
+                                    </span>
+                                    <button
+                                      onClick={() => handleDeleteClick(project)}
+                                      className="p-1 text-muted-foreground hover:text-destructive transition-colors opacity-0 group-hover:opacity-100"
+                                      title="Excluir álbum"
+                                    >
+                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                      </svg>
+                                    </button>
+                                  </div>
+                                </div>
+                                
+                                {project.description && (
+                                  <p className="text-muted-foreground text-sm mb-4 line-clamp-2">
+                                    {project.description}
+                                  </p>
+                                )}
+                                
+                                <div className="flex justify-between items-center text-sm text-muted-foreground mb-4">
+                                  <span className="flex items-center">
+                                    <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+                                    </svg>
+                                    {getAlbumSizeText(project.albumSize)}
+                                  </span>
+                                  <span className="flex items-center">
+                                    <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                    </svg>
+                                    {project._count?.pages || 0} páginas
+                                  </span>
+                                </div>
+                                
+                                <div className="flex justify-between items-center">
+                                  <div className="text-xs text-muted-foreground">
+                                    <p>Criado: {new Date(project.createdAt).toLocaleDateString('pt-BR')}</p>
+                                    <p>Atualizado: {new Date(project.updatedAt).toLocaleDateString('pt-BR')}</p>
+                                  </div>
+                                  <Link
+                                    href={`/projects/${project.id}`}
+                                    className="text-sm font-medium text-primary hover:text-primary/80 transition-colors flex items-center"
+                                  >
+                                    Abrir
+                                    <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                    </svg>
+                                  </Link>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                  </div>
-                  
-                  {project.description && (
-                    <p className="text-muted-foreground text-sm mb-4 line-clamp-2">
-                      {project.description}
-                    </p>
+                  ))}
+
+                  {/* Álbuns Individuais */}
+                  {ungrouped.length > 0 && (
+                    <div className="space-y-4">
+                      {Object.keys(grouped).length > 0 && (
+                        <div className="flex items-center space-x-3 mb-4">
+                          <div className="p-2 bg-purple-100 rounded-lg">
+                            <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                            </svg>
+                          </div>
+                          <div>
+                            <h3 className="text-lg font-semibold">Álbuns Individuais</h3>
+                            <p className="text-sm text-muted-foreground">
+                              {ungrouped.length} álbum{ungrouped.length !== 1 ? 's' : ''}
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {ungrouped.map((project) => (
+                          <div key={project.id} className="rounded-xl border bg-card hover:bg-accent/50 transition-colors group">
+                            <div className="p-6">
+                              <div className="flex justify-between items-start mb-4">
+                                <h3 className="font-semibold text-lg truncate group-hover:text-primary transition-colors">
+                                  {project.name}
+                                </h3>
+                                <div className="flex items-center gap-2">
+                                  <span className={`px-2 py-1 text-xs font-medium rounded-md border ${getStatusColor(project.status)}`}>
+                                    {getStatusText(project.status)}
+                                  </span>
+                                  <button
+                                    onClick={() => handleDeleteClick(project)}
+                                    className="p-1 text-muted-foreground hover:text-destructive transition-colors opacity-0 group-hover:opacity-100"
+                                    title="Excluir álbum"
+                                  >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                    </svg>
+                                  </button>
+                                </div>
+                              </div>
+                              
+                              {project.description && (
+                                <p className="text-muted-foreground text-sm mb-4 line-clamp-2">
+                                  {project.description}
+                                </p>
+                              )}
+                              
+                              <div className="flex justify-between items-center text-sm text-muted-foreground mb-4">
+                                <span className="flex items-center">
+                                  <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+                                  </svg>
+                                  {getAlbumSizeText(project.albumSize)}
+                                </span>
+                                <span className="flex items-center">
+                                  <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                  </svg>
+                                  {project._count?.pages || 0} páginas
+                                </span>
+                              </div>
+                              
+                              <div className="flex justify-between items-center">
+                                <div className="text-xs text-muted-foreground">
+                                  <p>Criado: {new Date(project.createdAt).toLocaleDateString('pt-BR')}</p>
+                                  <p>Atualizado: {new Date(project.updatedAt).toLocaleDateString('pt-BR')}</p>
+                                </div>
+                                <Link
+                                  href={`/projects/${project.id}`}
+                                  className="text-sm font-medium text-primary hover:text-primary/80 transition-colors flex items-center"
+                                >
+                                  Abrir
+                                  <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                  </svg>
+                                </Link>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                   )}
-                  
-                  <div className="flex justify-between items-center text-sm text-muted-foreground mb-4">
-                    <span className="flex items-center">
-                      <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
-                      </svg>
-                      {getAlbumSizeText(project.albumSize)}
-                    </span>
-                    <span className="flex items-center">
-                      <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                      </svg>
-                      {project._count?.pages || 0} páginas
-                    </span>
-                  </div>
-                  
-                  <div className="flex justify-between items-center">
-                    <div className="text-xs text-muted-foreground">
-                      <p>Criado: {new Date(project.createdAt).toLocaleDateString('pt-BR')}</p>
-                      <p>Atualizado: {new Date(project.updatedAt).toLocaleDateString('pt-BR')}</p>
-                    </div>
-                    <Link
-                      href={`/projects/${project.id}`}
-                      className="text-sm font-medium text-primary hover:text-primary/80 transition-colors flex items-center"
-                    >
-                      Abrir
-                      <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                      </svg>
-                    </Link>
-                  </div>
-                </div>
-              </div>
-            ))}
+                </>
+              )
+            })()}
           </div>
         )}
 
