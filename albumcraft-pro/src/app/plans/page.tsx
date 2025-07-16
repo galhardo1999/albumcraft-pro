@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
@@ -29,7 +29,7 @@ interface Plan {
   features: PlanFeature[]
   popular?: boolean
   buttonText: string
-  buttonVariant: 'outline' | 'default' | 'premium'
+  buttonVariant: 'outline' | 'default' | 'secondary'
 }
 
 const plans: Plan[] = [
@@ -89,7 +89,7 @@ const plans: Plan[] = [
       { text: 'SLA garantido', included: true }
     ],
     buttonText: 'Contatar Vendas',
-    buttonVariant: 'premium'
+    buttonVariant: 'secondary'
   }
 ]
 
@@ -99,11 +99,7 @@ export default function PlansPage() {
   const [upgradeLoading, setUpgradeLoading] = useState<string | null>(null)
   const router = useRouter()
 
-  useEffect(() => {
-    checkAuth()
-  }, [])
-
-  const checkAuth = async () => {
+  const checkAuth = useCallback(async () => {
     try {
       const response = await fetch('/api/auth/me', {
         credentials: 'include'
@@ -125,7 +121,11 @@ export default function PlansPage() {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [router])
+
+  useEffect(() => {
+    checkAuth()
+  }, [checkAuth])
 
   const handleLogout = async () => {
     try {

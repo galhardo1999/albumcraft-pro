@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
@@ -38,11 +38,7 @@ export default function ProfilePage() {
   const [messageType, setMessageType] = useState<'success' | 'error'>('success')
   const router = useRouter()
 
-  useEffect(() => {
-    fetchUserProfile()
-  }, [])
-
-  const fetchUserProfile = async () => {
+  const fetchUserProfile = useCallback(async () => {
     try {
       const response = await fetch('/api/auth/me', {
         credentials: 'include'
@@ -70,15 +66,11 @@ export default function ProfilePage() {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [router])
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-  };
+  useEffect(() => {
+    fetchUserProfile()
+  }, [fetchUserProfile])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -98,7 +90,7 @@ export default function ProfilePage() {
     }
 
     try {
-      const updateData: any = {
+      const updateData: Record<string, string> = {
         name: formData.name,
         email: formData.email
       }
@@ -176,32 +168,6 @@ export default function ProfilePage() {
         }
     }
   }
-
-  const handleDeleteAccount = async () => {
-    if (!confirm('Tem certeza que deseja excluir sua conta? Esta ação não pode ser desfeita.')) {
-      return
-    }
-
-    try {
-      const response = await fetch('/api/auth/delete-account', {
-        method: 'DELETE',
-        credentials: 'include'
-      })
-
-      if (response.ok) {
-        alert('Conta excluída com sucesso')
-        window.location.href = '/auth/login';
-      } else {
-        const data = await response.json();
-        setMessage(data.error || 'Erro ao excluir conta');
-        setMessageType('error');
-      }
-    } catch (error: unknown) {
-      console.error('Erro:', error);
-      setMessage('Erro ao excluir conta');
-      setMessageType('error');
-    }
-  };
 
   const handleLogout = async () => {
     try {

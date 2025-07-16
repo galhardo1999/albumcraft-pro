@@ -1,10 +1,10 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { useProtectedRoute } from '@/hooks/useAuth'
 
 interface Project {
   id: string
@@ -22,6 +22,7 @@ interface Project {
 }
 
 export default function ProjectsPage() {
+  const { logout } = useProtectedRoute()
   const [projects, setProjects] = useState<Project[]>([])
   const [filteredProjects, setFilteredProjects] = useState<Project[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -35,7 +36,6 @@ export default function ProjectsPage() {
   const [isDeleting, setIsDeleting] = useState(false)
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
   const [viewMode, setViewMode] = useState<'list' | 'groups'>('list')
-  const router = useRouter()
 
   const fetchProjects = useCallback(async () => {
     try {
@@ -79,6 +79,7 @@ export default function ProjectsPage() {
   }, [projects, searchTerm, statusFilter, creationTypeFilter, sortBy]);
 
   useEffect(() => {
+    // O middleware já garante que só usuários autenticados chegam aqui
     fetchProjects();
   }, [fetchProjects]);
 
@@ -87,17 +88,7 @@ export default function ProjectsPage() {
   }, [filterAndSortProjects]);
 
   const handleLogout = async () => {
-    try {
-      await fetch('/api/auth/logout', {
-        method: 'POST',
-        credentials: 'include'
-      })
-      
-      document.cookie = 'auth-token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;'
-      router.push('/auth/login')
-    } catch (err) {
-      console.error('Logout error:', err)
-    }
+    await logout()
   }
 
   const getStatusColor = (status: string) => {
@@ -171,10 +162,38 @@ export default function ProjectsPage() {
         throw new Error('Erro ao excluir álbum')
       }
 
+      const result = await response.json()
+
       // Remove o projeto da lista local
       setProjects(prev => prev.filter(p => p.id !== projectToDelete.id))
       setDeleteModalOpen(false)
       setProjectToDelete(null)
+
+      // Mostrar mensagem de sucesso com detalhes do S3
+      if (result.s3Result) {
+        const { totalFiles, successCount, errorCount, ignoredCount, warnings } = result.s3Result
+        
+        let message = `Álbum "${projectToDelete.name}" excluído com sucesso!`
+        
+        if (totalFiles > 0) {
+          message += ` ${successCount} arquivo(s) removido(s) do S3.`
+          
+          if (errorCount > 0) {
+            message += ` ${errorCount} arquivo(s) não puderam ser removidos do S3.`
+          }
+          
+          if (ignoredCount > 0) {
+            message += ` ${ignoredCount} arquivo(s) já não existiam no S3.`
+          }
+        } else {
+          message += ' Nenhum arquivo encontrado no S3.'
+        }
+
+        console.log(message)
+        if (warnings && warnings.length > 0) {
+          console.warn('Avisos da exclusão S3:', warnings)
+        }
+      }
     } catch (error) {
       console.error('Erro ao excluir álbum:', error)
       setError('Erro ao excluir álbum. Tente novamente.')
@@ -230,6 +249,7 @@ export default function ProjectsPage() {
     }
   }, [projects, viewMode])
 
+  // Mostrar loading apenas para os dados da página
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -722,10 +742,39 @@ export default function ProjectsPage() {
               </div>
             </div>
             
-            <p className="text-sm mb-6">
-              Tem certeza que deseja excluir o álbum <strong>"{projectToDelete?.name}"</strong>? 
-              Todas as páginas e configurações serão perdidas permanentemente.
-            </p>
+            <div className="text-sm mb-6 space-y-3">
+              <p>
+                Tem certeza que deseja excluir o álbum <strong>&quot;{projectToDelete?.name}&quot;</strong>?
+              </p>
+              
+              <div className="bg-muted/50 rounded-lg p-3 space-y-2">
+                <p className="font-medium text-destructive">Esta ação irá:</p>
+                <ul className="text-xs space-y-1 text-muted-foreground">
+                  <li className="flex items-center gap-2">
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    Excluir permanentemente o álbum e todas as páginas
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    Remover todas as fotos armazenadas no S3
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    Apagar todas as configurações e metadados
+                  </li>
+                </ul>
+              </div>
+              
+              <p className="text-xs text-muted-foreground">
+                <strong>Atenção:</strong> Esta ação não pode ser desfeita e todos os dados serão perdidos permanentemente.
+              </p>
+            </div>
             
             <div className="flex gap-3 justify-end">
               <Button

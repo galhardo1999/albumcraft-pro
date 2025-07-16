@@ -1,0 +1,389 @@
+/* Estilos específicos para o Diagramador */
+
+/* Scrollbar customizada */
+.scrollbar-thin {
+  scrollbar-width: thin;
+}
+
+.scrollbar-thumb-muted {
+  scrollbar-color: hsl(var(--muted)) transparent;
+}
+
+.scrollbar-track-transparent {
+  scrollbar-track-color: transparent;
+}
+
+/* Webkit scrollbar para navegadores baseados em Chromium */
+.scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted));
+  border-radius: 3px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground));
+}
+
+/* Animações suaves para elementos do diagramador */
+.diagram-element {
+  transition: all 0.2s ease-in-out;
+}
+
+.diagram-element:hover {
+  transform: scale(1.02);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.diagram-element.selected {
+  box-shadow: 0 0 0 2px hsl(var(--primary));
+}
+
+/* Guias de alinhamento */
+.alignment-guide {
+  position: absolute;
+  pointer-events: none;
+  z-index: 1000;
+}
+
+.alignment-guide.horizontal {
+  width: 100%;
+  height: 1px;
+  background: #22c55e;
+  box-shadow: 0 0 4px rgba(34, 197, 94, 0.5);
+}
+
+.alignment-guide.vertical {
+  width: 1px;
+  height: 100%;
+  background: #22c55e;
+  box-shadow: 0 0 4px rgba(34, 197, 94, 0.5);
+}
+
+/* Área de drop para fotos */
+.drop-zone {
+  position: relative;
+  transition: all 0.3s ease;
+}
+
+.drop-zone.drag-over {
+  background: rgba(59, 130, 246, 0.1);
+  border: 2px dashed #3b82f6;
+}
+
+.drop-zone.drag-over::after {
+  content: "Solte a foto aqui";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(59, 130, 246, 0.9);
+  color: white;
+  padding: 8px 16px;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 500;
+  z-index: 10;
+}
+
+/* Handles de redimensionamento */
+.resize-handle {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  background: hsl(var(--primary));
+  border: 2px solid white;
+  border-radius: 50%;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.diagram-element:hover .resize-handle,
+.diagram-element.selected .resize-handle {
+  opacity: 1;
+}
+
+.resize-handle.nw {
+  top: -4px;
+  left: -4px;
+  cursor: nw-resize;
+}
+
+.resize-handle.ne {
+  top: -4px;
+  right: -4px;
+  cursor: ne-resize;
+}
+
+.resize-handle.sw {
+  bottom: -4px;
+  left: -4px;
+  cursor: sw-resize;
+}
+
+.resize-handle.se {
+  bottom: -4px;
+  right: -4px;
+  cursor: se-resize;
+}
+
+/* Timeline de lâminas */
+.spread-timeline {
+  background: linear-gradient(to bottom, #f8fafc, #f1f5f9);
+  border-top: 1px solid hsl(var(--border));
+}
+
+.spread-thumbnail {
+  transition: all 0.3s ease;
+  border: 2px solid transparent;
+}
+
+.spread-thumbnail:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.spread-thumbnail.active {
+  border-color: hsl(var(--primary));
+  box-shadow: 0 0 0 1px hsl(var(--primary));
+}
+
+.spread-thumbnail.dragging {
+  transform: rotate(3deg) scale(1.05);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  z-index: 1000;
+}
+
+/* Galeria de fotos */
+.photo-gallery {
+  background: linear-gradient(to bottom, #fafafa, #f5f5f5);
+}
+
+.photo-item {
+  transition: all 0.2s ease;
+  border: 2px solid transparent;
+}
+
+.photo-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.photo-item.selected {
+  border-color: hsl(var(--primary));
+  box-shadow: 0 0 0 1px hsl(var(--primary));
+}
+
+.photo-item.dragging {
+  opacity: 0.5;
+  transform: scale(0.95);
+}
+
+/* Painel de ferramentas */
+.tools-panel {
+  background: linear-gradient(to bottom, #ffffff, #fafafa);
+  border-left: 1px solid hsl(var(--border));
+}
+
+/* Canvas principal */
+.diagram-canvas {
+  background: 
+    radial-gradient(circle at 1px 1px, rgba(0,0,0,0.15) 1px, transparent 0);
+  background-size: 20px 20px;
+}
+
+.page-container {
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+/* Réguas */
+.ruler {
+  background: linear-gradient(to bottom, #e5e7eb, #d1d5db);
+  font-size: 10px;
+  color: #6b7280;
+}
+
+.ruler-mark {
+  position: absolute;
+  border-color: #9ca3af;
+}
+
+/* Área de sangria e segurança */
+.bleed-area {
+  border: 1px dashed #ef4444;
+  opacity: 0.6;
+}
+
+.safe-area {
+  border: 1px dashed #3b82f6;
+  opacity: 0.6;
+}
+
+/* Controles de zoom */
+.zoom-controls {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(8px);
+  border: 1px solid hsl(var(--border));
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* Botões de ação */
+.action-button {
+  transition: all 0.2s ease;
+}
+
+.action-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* Indicadores de status */
+.status-indicator {
+  position: relative;
+}
+
+.status-indicator::after {
+  content: '';
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #22c55e;
+  border: 2px solid white;
+}
+
+.status-indicator.warning::after {
+  background: #f59e0b;
+}
+
+.status-indicator.error::after {
+  background: #ef4444;
+}
+
+/* Animações de entrada */
+@keyframes slideInFromLeft {
+  from {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideInFromRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-in-left {
+  animation: slideInFromLeft 0.3s ease-out;
+}
+
+.animate-slide-in-right {
+  animation: slideInFromRight 0.3s ease-out;
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.3s ease-out;
+}
+
+/* Responsividade */
+@media (max-width: 768px) {
+  .diagram-canvas {
+    background-size: 10px 10px;
+  }
+  
+  .photo-gallery {
+    max-width: 100%;
+  }
+  
+  .tools-panel {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 50vh;
+    z-index: 1000;
+    transform: translateY(100%);
+    transition: transform 0.3s ease;
+  }
+  
+  .tools-panel.open {
+    transform: translateY(0);
+  }
+}
+
+/* Estados de carregamento */
+.loading-skeleton {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: loading 1.5s infinite;
+}
+
+@keyframes loading {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* Tooltips */
+.tooltip {
+  position: relative;
+}
+
+.tooltip::before {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+  z-index: 1000;
+}
+
+.tooltip:hover::before {
+  opacity: 1;
+}

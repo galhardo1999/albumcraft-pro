@@ -1,13 +1,34 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { jwtVerify } from 'jose'
 
-const secret = new TextEncoder().encode(process.env.NEXTAUTH_SECRET || 'fallback-secret')
-
 // Rotas que requerem autenticação
 const protectedRoutes = ['/dashboard', '/projects', '/photos', '/settings', '/profile', '/plans']
 
 // Rotas de autenticação (redirecionam se já logado)
 const authRoutes = ['/auth/login', '/auth/register', '/auth/forgot-password']
+
+async function verifyToken(token: string): Promise<boolean> {
+  try {
+    const jwtSecret = process.env.NEXTAUTH_SECRET
+    
+    if (!jwtSecret) {
+      console.error('NEXTAUTH_SECRET não configurado')
+      return false
+    }
+    
+    const secret = new TextEncoder().encode(jwtSecret)
+    const { payload } = await jwtVerify(token, secret)
+    
+    // Verificar se o token tem userId válido e não expirou
+    return !!(payload.userId && 
+             typeof payload.userId === 'string' && 
+             payload.exp && 
+             payload.exp * 1000 > Date.now())
+  } catch (error) {
+    // Token inválido ou expirado
+    return false
+  }
+}
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
@@ -16,33 +37,40 @@ export async function middleware(request: NextRequest) {
   const isProtectedRoute = protectedRoutes.some(route => pathname.startsWith(route))
   const isAuthRoute = authRoutes.some(route => pathname.startsWith(route))
   
-  // Tentar pegar token do cookie
+  // Se não é uma rota que precisa de verificação, continuar
+  if (!isProtectedRoute && !isAuthRoute) {
+    return NextResponse.next()
+  }
+  
+  // Obter token do cookie
   const token = request.cookies.get('auth-token')?.value
   
-  let isAuthenticated = false
+  // Verificar se o token é válido
+  const isAuthenticated = token ? await verifyToken(token) : false
   
-  if (token) {
-    try {
-      await jwtVerify(token, secret)
-      isAuthenticated = true
-    } catch (error) {
-      // Token inválido, remover cookie
-      const response = NextResponse.next()
-      response.cookies.delete('auth-token')
-      isAuthenticated = false
-    }
-  }
-  
-  // Se está tentando acessar rota protegida sem estar autenticado
+  // Se é uma rota protegida e não está autenticado
   if (isProtectedRoute && !isAuthenticated) {
     const loginUrl = new URL('/auth/login', request.url)
-    loginUrl.searchParams.set('redirect', pathname)
-    return NextResponse.redirect(loginUrl)
+    const response = NextResponse.redirect(loginUrl)
+    
+    // Remover cookie inválido se existir
+    if (token) {
+      response.cookies.set('auth-token', '', {
+        expires: new Date(0),
+        path: '/',
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax'
+      })
+    }
+    
+    return response
   }
   
-  // Se está autenticado e tentando acessar rotas de auth, redirecionar para dashboard
+  // Se é uma rota de autenticação e está autenticado
   if (isAuthRoute && isAuthenticated) {
-    return NextResponse.redirect(new URL('/dashboard', request.url))
+    const dashboardUrl = new URL('/dashboard', request.url)
+    return NextResponse.redirect(dashboardUrl)
   }
   
   return NextResponse.next()
@@ -56,7 +84,8 @@ export const config = {
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
+     * - public folder
      */
-    '/((?!api|_next/static|_next/image|favicon.ico).*)',
+    '/((?!api|_next/static|_next/image|favicon.ico|.*\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 }

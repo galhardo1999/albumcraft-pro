@@ -1,8 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { useProtectedRoute } from '@/hooks/useAuth'
 
 interface Project {
   id: string
@@ -25,13 +25,15 @@ interface DashboardStats {
 }
 
 export default function DashboardPage() {
+  const { logout } = useProtectedRoute()
   const [projects, setProjects] = useState<Project[]>([])
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
-  const router = useRouter()
 
   useEffect(() => {
+    // O middleware já garante que só usuários autenticados chegam aqui
+    // Então podemos buscar os dados diretamente
     fetchDashboardData()
   }, [])
 
@@ -70,19 +72,7 @@ export default function DashboardPage() {
   }
 
   const handleLogout = async () => {
-    try {
-      await fetch('/api/auth/logout', {
-        method: 'POST',
-        credentials: 'include'
-      })
-      
-      // Remover token do cookie
-      document.cookie = 'auth-token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;'
-      
-      router.push('/auth/login')
-    } catch (err) {
-      console.error('Logout error:', err)
-    }
+    await logout()
   }
 
   const getStatusColor = (status: string) => {
@@ -118,6 +108,7 @@ export default function DashboardPage() {
     }
   }
 
+  // Mostrar loading apenas para os dados da página
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">

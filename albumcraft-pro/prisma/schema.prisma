@@ -82,6 +82,7 @@ model Project {
   // Relacionamentos
   user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   pages Page[]
+  photos Photo[] // Novo relacionamento com fotos
 
   @@map("projects")
 }
@@ -108,9 +109,10 @@ model Page {
 model Photo {
   id           String   @id @default(cuid())
   userId       String   @map("user_id")
+  projectId    String?  @map("project_id") // Novo campo para associar foto ao projeto/álbum
   originalUrl  String   @map("original_url")
   thumbnailUrl String   @map("thumbnail_url")
-  mediumUrl    String   @map("medium_url")
+  mediumUrl    String?  @map("medium_url") // Tornando opcional
   filename     String
   fileSize     Int      @map("file_size")
   width        Int
@@ -118,9 +120,16 @@ model Photo {
   mimeType     String   @map("mime_type")
   uploadedAt   DateTime @default(now()) @map("uploaded_at")
   metadata     Json?
+  
+  // Campos para S3
+  s3Key        String?  @map("s3_key")        // Chave do arquivo no S3
+  s3Bucket     String?  @map("s3_bucket")     // Nome do bucket S3
+  s3Region     String?  @map("s3_region")     // Região do S3
+  isS3Stored   Boolean  @map("is_s3_stored") @default(false) // Flag para indicar se está no S3
 
   // Relacionamentos
   user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project        Project?         @relation(fields: [projectId], references: [id], onDelete: SetNull) // Novo relacionamento
   photoPlacement PhotoPlacement[]
 
   @@map("photos")

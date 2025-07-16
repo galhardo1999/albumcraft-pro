@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import "../styles/diagramador.css";
 
 export const metadata: Metadata = {
   title: "AlbumCraftPro - Criador de Álbuns Profissionais",

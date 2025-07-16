@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { authenticateRequest, createAuthResponse } from '@/lib/auth-middleware'
 import { UpdateProjectSchema } from '@/lib/validations'
+import { deleteProjectFiles, isS3Configured } from '@/lib/s3'
 
 // GET /api/projects/[id] - Buscar projeto específico
 export async function GET(
@@ -172,6 +173,13 @@ export async function DELETE(
       where: {
         id: params.id,
         userId: user.userId
+      },
+      include: {
+        photos: {
+          where: {
+            isS3Stored: true // Apenas fotos armazenadas no S3
+          }
+        }
       }
     })
     
@@ -184,16 +192,92 @@ export async function DELETE(
         }
       }, { status: 404 })
     }
+
+    // Lista para armazenar erros de exclusão do S3 (não críticos)
+    let s3DeletionResult = null
+
+    // Deletar arquivos do S3 se configurado
+    if (isS3Configured() && existingProject.photos.length > 0) {
+      console.log(`Iniciando exclusão de ${existingProject.photos.length} fotos do S3 para o projeto ${params.id}`)
+      
+      try {
+        s3DeletionResult = await deleteProjectFiles(existingProject.photos)
+        console.log(`Exclusão do S3 concluída: ${s3DeletionResult.summary.successCount} arquivos deletados, ${s3DeletionResult.summary.errorCount} erros`)
+      } catch (error) {
+        console.error('Erro geral na exclusão do S3:', error)
+        s3DeletionResult = {
+          totalPhotos: existingProject.photos.length,
+          deletedFiles: [],
+          errors: [{ key: 'general', error: error instanceof Error ? error.message : 'Erro desconhecido' }],
+          summary: { successCount: 0, errorCount: 1, skippedCount: 0 }
+        }
+      }
+    } else if (!isS3Configured()) {
+      console.log('S3 não configurado, pulando exclusão de arquivos')
+    } else {
+      console.log('Nenhuma foto encontrada para exclusão no S3')
+    }
     
     // Deletar projeto (cascade irá deletar páginas e placements relacionados)
     await prisma.project.delete({
       where: { id: params.id }
     })
+
+    console.log(`Projeto ${params.id} deletado com sucesso`)
     
-    return NextResponse.json({
+    // Retornar resposta com informações sobre exclusões do S3
+    const response: {
+      success: boolean;
+      data: {
+        message: string;
+        totalPhotos: number;
+        s3Deletion?: {
+          totalFiles?: number;
+          successCount?: number;
+          errorCount?: number;
+          skippedCount?: number;
+          message?: string;
+          totalPhotos?: number;
+        };
+        s3Warnings?: {
+          message: string;
+          errors: Array<{ key: string; error: string }>;
+          count: number;
+        };
+      };
+    } = {
       success: true,
-      data: { message: 'Projeto deletado com sucesso' }
-    })
+      data: { 
+        message: 'Projeto deletado com sucesso',
+        totalPhotos: existingProject.photos.length
+      }
+    }
+
+    // Incluir informações detalhadas sobre a exclusão do S3
+    if (s3DeletionResult) {
+      response.data.s3Deletion = {
+        totalFiles: s3DeletionResult.deletedFiles.length,
+        successCount: s3DeletionResult.summary.successCount,
+        errorCount: s3DeletionResult.summary.errorCount,
+        skippedCount: s3DeletionResult.summary.skippedCount
+      }
+
+      // Incluir avisos sobre erros do S3 se houver (não críticos)
+      if (s3DeletionResult.summary.errorCount > 0) {
+        response.data.s3Warnings = {
+          message: 'Projeto deletado, mas alguns arquivos do S3 não puderam ser removidos',
+          errors: s3DeletionResult.errors,
+          count: s3DeletionResult.summary.errorCount
+        }
+      }
+    } else if (existingProject.photos.length > 0) {
+      response.data.s3Deletion = {
+        message: 'S3 não configurado - arquivos não foram removidos do armazenamento',
+        totalPhotos: existingProject.photos.length
+      }
+    }
+    
+    return NextResponse.json(response)
     
   } catch (error) {
     console.error('Delete project error:', error)
