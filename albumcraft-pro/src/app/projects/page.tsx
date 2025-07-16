@@ -29,6 +29,9 @@ export default function ProjectsPage() {
   const [statusFilter, setStatusFilter] = useState('ALL')
   const [creationTypeFilter, setCreationTypeFilter] = useState('ALL')
   const [sortBy, setSortBy] = useState('updatedAt')
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false)
+  const [projectToDelete, setProjectToDelete] = useState<Project | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
   const router = useRouter()
 
   const fetchProjects = useCallback(async () => {
@@ -145,6 +148,41 @@ export default function ProjectsPage() {
   const getCreationTypeCount = (creationType: string) => {
     if (creationType === 'ALL') return projects.length
     return projects.filter(p => p.creationType === creationType).length
+  }
+
+  const handleDeleteClick = (project: Project) => {
+    setProjectToDelete(project)
+    setDeleteModalOpen(true)
+  }
+
+  const handleDeleteConfirm = async () => {
+    if (!projectToDelete) return
+
+    setIsDeleting(true)
+    try {
+      const response = await fetch(`/api/projects/${projectToDelete.id}`, {
+        method: 'DELETE',
+      })
+
+      if (!response.ok) {
+        throw new Error('Erro ao excluir álbum')
+      }
+
+      // Remove o projeto da lista local
+      setProjects(prev => prev.filter(p => p.id !== projectToDelete.id))
+      setDeleteModalOpen(false)
+      setProjectToDelete(null)
+    } catch (error) {
+      console.error('Erro ao excluir álbum:', error)
+      setError('Erro ao excluir álbum. Tente novamente.')
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
+  const handleDeleteCancel = () => {
+    setDeleteModalOpen(false)
+    setProjectToDelete(null)
   }
 
   if (isLoading) {
@@ -404,9 +442,20 @@ export default function ProjectsPage() {
                     <h3 className="font-semibold text-lg truncate group-hover:text-primary transition-colors">
                       {project.name}
                     </h3>
-                    <span className={`px-2 py-1 text-xs font-medium rounded-md border ${getStatusColor(project.status)}`}>
-                      {getStatusText(project.status)}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className={`px-2 py-1 text-xs font-medium rounded-md border ${getStatusColor(project.status)}`}>
+                        {getStatusText(project.status)}
+                      </span>
+                      <button
+                        onClick={() => handleDeleteClick(project)}
+                        className="p-1 text-muted-foreground hover:text-destructive transition-colors opacity-0 group-hover:opacity-100"
+                        title="Excluir álbum"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                    </div>
                   </div>
                   
                   {project.description && (
@@ -458,6 +507,54 @@ export default function ProjectsPage() {
           </div>
         )}
       </main>
+
+      {/* Delete Confirmation Modal */}
+      {deleteModalOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-background rounded-xl border p-6 max-w-md w-full mx-4">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 bg-destructive/10 rounded-lg">
+                <svg className="w-5 h-5 text-destructive" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold">Confirmar Exclusão</h3>
+                <p className="text-sm text-muted-foreground">Esta ação não pode ser desfeita</p>
+              </div>
+            </div>
+            
+            <p className="text-sm mb-6">
+              Tem certeza que deseja excluir o álbum <strong>"{projectToDelete?.name}"</strong>? 
+              Todas as páginas e configurações serão perdidas permanentemente.
+            </p>
+            
+            <div className="flex gap-3 justify-end">
+              <Button
+                variant="outline"
+                onClick={handleDeleteCancel}
+                disabled={isDeleting}
+              >
+                Cancelar
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={handleDeleteConfirm}
+                disabled={isDeleting}
+              >
+                {isDeleting ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></div>
+                    Excluindo...
+                  </>
+                ) : (
+                  'Excluir Álbum'
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
