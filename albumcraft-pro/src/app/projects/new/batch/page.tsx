@@ -91,7 +91,8 @@ export default function BatchAlbumsPage() {
             description: album.description.trim(),
             albumSize: album.albumSize,
             template: album.template,
-            status: 'DRAFT'
+            status: 'DRAFT',
+            creationType: 'BATCH'
           })
         })
       )

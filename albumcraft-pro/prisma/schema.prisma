@@ -39,6 +39,11 @@ enum Template {
   minimal
 }
 
+enum CreationType {
+  SINGLE
+  BATCH
+}
+
 model User {
   id                    String    @id @default(cuid())
   email                 String    @unique
@@ -61,16 +66,17 @@ model User {
 }
 
 model Project {
-  id          String        @id @default(cuid())
-  userId      String        @map("user_id")
-  name        String
-  description String?
-  albumSize   AlbumSize     @map("album_size")
-  template    Template      @default(classic)
-  status      ProjectStatus @default(DRAFT)
-  settings    Json?
-  createdAt   DateTime      @default(now()) @map("created_at")
-  updatedAt   DateTime      @updatedAt @map("updated_at")
+  id           String        @id @default(cuid())
+  userId       String        @map("user_id")
+  name         String
+  description  String?
+  albumSize    AlbumSize     @map("album_size")
+  template     Template      @default(classic)
+  status       ProjectStatus @default(DRAFT)
+  creationType CreationType  @map("creation_type") @default(SINGLE)
+  settings     Json?
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
 
   // Relacionamentos
   user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)

@@ -65,7 +65,8 @@ export default function SingleAlbumPage() {
           description: formData.description.trim(),
           albumSize: formData.albumSize,
           template: formData.template,
-          status: 'DRAFT'
+          status: 'DRAFT',
+          creationType: 'SINGLE'
         })
       })
 

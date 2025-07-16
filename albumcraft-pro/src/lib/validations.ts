@@ -32,6 +32,7 @@ export const CreateProjectSchema = z.object({
   albumSize: z.enum(['SMALL', 'MEDIUM', 'LARGE', 'EXTRA_LARGE', 'SIZE_30X30', 'SIZE_20X30', 'CUSTOM']),
   template: z.enum(['classic', 'modern', 'artistic', 'minimal']).optional(),
   status: z.enum(['DRAFT', 'IN_PROGRESS', 'COMPLETED']).optional(),
+  creationType: z.enum(['SINGLE', 'BATCH']).optional(),
   customWidth: z.number().positive().optional(),
   customHeight: z.number().positive().optional(),
 })

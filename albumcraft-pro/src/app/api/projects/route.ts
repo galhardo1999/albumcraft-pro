@@ -89,6 +89,7 @@ export const POST = withAuth(async (request: NextRequest, user) => {
         albumSize: validatedData.albumSize,
         template: validatedData.template || 'classic',
         status: validatedData.status || 'DRAFT',
+        creationType: validatedData.creationType || 'SINGLE',
         settings: {
           customWidth: validatedData.customWidth,
           customHeight: validatedData.customHeight,

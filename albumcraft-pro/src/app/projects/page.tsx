@@ -12,6 +12,7 @@ interface Project {
   description?: string
   albumSize: string
   status: string
+  creationType: string
   createdAt: string
   updatedAt: string
   _count: {
@@ -26,6 +27,7 @@ export default function ProjectsPage() {
   const [error, setError] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('ALL')
+  const [creationTypeFilter, setCreationTypeFilter] = useState('ALL')
   const [sortBy, setSortBy] = useState('updatedAt')
   const router = useRouter()
 
@@ -52,7 +54,8 @@ export default function ProjectsPage() {
       const matchesSearch = project.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                            project.description?.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesStatus = statusFilter === 'ALL' || project.status === statusFilter;
-      return matchesSearch && matchesStatus;
+      const matchesCreationType = creationTypeFilter === 'ALL' || project.creationType === creationTypeFilter;
+      return matchesSearch && matchesStatus && matchesCreationType;
     });
 
     filtered.sort((a, b) => {
@@ -67,7 +70,7 @@ export default function ProjectsPage() {
     });
 
     setFilteredProjects(filtered);
-  }, [projects, searchTerm, statusFilter, sortBy]);
+  }, [projects, searchTerm, statusFilter, creationTypeFilter, sortBy]);
 
   useEffect(() => {
     fetchProjects();
@@ -137,6 +140,11 @@ export default function ProjectsPage() {
   const getStatusCount = (status: string) => {
     if (status === 'ALL') return projects.length
     return projects.filter(p => p.status === status).length
+  }
+
+  const getCreationTypeCount = (creationType: string) => {
+    if (creationType === 'ALL') return projects.length
+    return projects.filter(p => p.creationType === creationType).length
   }
 
   if (isLoading) {
@@ -224,7 +232,7 @@ export default function ProjectsPage() {
         </div>
 
         {/* Stats Overview */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
           <div className="rounded-xl border bg-card p-6">
             <div className="flex items-center space-x-4">
               <div className="p-2 bg-primary/10 rounded-lg">
@@ -233,8 +241,36 @@ export default function ProjectsPage() {
                 </svg>
               </div>
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Álbuns Criados</p>
+                <p className="text-sm font-medium text-muted-foreground">Total</p>
                 <p className="text-2xl font-semibold">{getStatusCount('ALL')}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-xl border bg-card p-6">
+            <div className="flex items-center space-x-4">
+              <div className="p-2 bg-purple-100 rounded-lg">
+                <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Individuais</p>
+                <p className="text-2xl font-semibold">{getCreationTypeCount('SINGLE')}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-xl border bg-card p-6">
+            <div className="flex items-center space-x-4">
+              <div className="p-2 bg-orange-100 rounded-lg">
+                <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Em Lote</p>
+                <p className="text-2xl font-semibold">{getCreationTypeCount('BATCH')}</p>
               </div>
             </div>
           </div>
@@ -295,8 +331,20 @@ export default function ProjectsPage() {
               />
             </div>
 
-            {/* Status Filter */}
+            {/* Filters */}
             <div className="flex gap-2">
+              {/* Creation Type Filter */}
+              <select
+                value={creationTypeFilter}
+                onChange={(e) => setCreationTypeFilter(e.target.value)}
+                className="px-3 py-2 border rounded-lg bg-background text-sm"
+              >
+                <option value="ALL">Todos os Tipos</option>
+                <option value="SINGLE">Álbuns Individuais</option>
+                <option value="BATCH">Álbuns em Lote</option>
+              </select>
+
+              {/* Status Filter */}
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
@@ -331,15 +379,15 @@ export default function ProjectsPage() {
               </svg>
             </div>
             <h3 className="text-lg font-semibold mb-2">
-              {searchTerm || statusFilter !== 'ALL' ? 'Nenhum álbum encontrado' : 'Nenhum álbum ainda'}
+              {searchTerm || statusFilter !== 'ALL' || creationTypeFilter !== 'ALL' ? 'Nenhum álbum encontrado' : 'Nenhum álbum ainda'}
             </h3>
             <p className="text-muted-foreground mb-6">
-              {searchTerm || statusFilter !== 'ALL' 
+              {searchTerm || statusFilter !== 'ALL' || creationTypeFilter !== 'ALL'
                 ? 'Tente ajustar os filtros de busca' 
                 : 'Comece criando seu primeiro projeto de álbum'
               }
             </p>
-            {!searchTerm && statusFilter === 'ALL' && (
+            {!searchTerm && statusFilter === 'ALL' && creationTypeFilter === 'ALL' && (
               <Link href="/projects/new">
                 <Button>
                   Criar Primeiro Álbum
