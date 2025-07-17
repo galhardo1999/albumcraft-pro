@@ -48,8 +48,8 @@ export function useAuth(redirectTo?: string) {
           isAuthenticated: false
         })
         
-        // Não redirecionar aqui - deixar o middleware fazer isso
-        // O redirecionamento duplo pode causar loops
+        // Deixar o middleware fazer o redirecionamento
+        // Não redirecionar aqui para evitar loops
         
       } catch (error) {
         console.error('Auth check failed:', error)

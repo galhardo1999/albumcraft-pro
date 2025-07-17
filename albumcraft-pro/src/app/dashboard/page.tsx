@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useProtectedRoute } from '@/hooks/useAuth'
+import { getAlbumSizeByIdWithFallback, formatSizeDisplay } from '@/lib/album-sizes'
 
 interface Project {
   id: string
@@ -98,14 +99,8 @@ export default function DashboardPage() {
   }
 
   const getAlbumSizeText = (size: string) => {
-    switch (size) {
-      case 'SIZE_30X30':
-        return '30x30cm'
-      case 'SIZE_20X30':
-        return '20x30cm'
-      default:
-        return 'Personalizado'
-    }
+    const albumSize = getAlbumSizeByIdWithFallback(size)
+    return formatSizeDisplay(albumSize)
   }
 
   // Mostrar loading apenas para os dados da página

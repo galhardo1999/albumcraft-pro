@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useProtectedRoute } from '@/hooks/useAuth'
+import { getAlbumSizeByIdWithFallback, formatSizeDisplay } from '@/lib/album-sizes'
 
 interface Project {
   id: string
@@ -114,24 +115,8 @@ export default function ProjectsPage() {
   }
 
   const getAlbumSizeText = (size: string) => {
-    switch (size) {
-      case 'SIZE_30X30':
-        return '30x30cm'
-      case 'SIZE_20X30':
-        return '20x30cm'
-      case 'SMALL':
-        return '15x20cm'
-      case 'MEDIUM':
-        return '20x30cm'
-      case 'LARGE':
-        return '30x40cm'
-      case 'EXTRA_LARGE':
-        return '40x50cm'
-      case 'CUSTOM':
-        return 'Personalizado'
-      default:
-        return 'Personalizado'
-    }
+    const albumSize = getAlbumSizeByIdWithFallback(size)
+    return formatSizeDisplay(albumSize)
   }
 
   const getStatusCount = (status: string) => {

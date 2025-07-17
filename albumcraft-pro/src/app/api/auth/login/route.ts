@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
     })
       .setProtectedHeader({ alg: 'HS256' })
       .setIssuedAt()
-      .setExpirationTime('15m')
+      .setExpirationTime('7d')
       .sign(secret)
     
     const response = NextResponse.json({
@@ -79,8 +79,8 @@ export async function POST(request: NextRequest) {
     response.cookies.set('auth-token', token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 15 * 60 // 15 minutes
+      sameSite: 'lax',
+      maxAge: 7 * 24 * 60 * 60 // 7 days
     })
     
     return response

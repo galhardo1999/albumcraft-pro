@@ -1,12 +1,17 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import React, { useState, useRef, useCallback, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+//import { Badge } from '@/components/ui/badge'
+import { Separator } from '@/components/ui/separator'
+import { Trash2, Download, RotateCcw, RotateCw, ZoomIn, ZoomOut, Move, Square } from 'lucide-react'
 import PhotoGallery from './PhotoGallery'
 import DiagramCanvas from './DiagramCanvas'
 import ToolsPanel from './ToolsPanel'
 import SpreadTimeline from './SpreadTimeline'
 import { samplePhotos } from '@/data/sampleData'
+import { getAlbumSizeByIdWithFallback, calculatePixelDimensions } from '@/lib/album-sizes'
 
 interface Project {
   id: string
@@ -65,6 +70,10 @@ interface AlbumConfig {
   height: number
   dpi: number
   bleed: number
+  widthCm: number
+  heightCm: number
+  aspectRatio: number
+  category: string
 }
 
 interface LayoutTemplate {
@@ -85,6 +94,16 @@ interface DiagramadorWorkspaceProps {
 }
 
 export default function DiagramadorWorkspace({ project }: DiagramadorWorkspaceProps) {
+  // Obter configuração do tamanho do álbum
+  const albumSizeConfig = getAlbumSizeByIdWithFallback(project.albumSize)
+  
+  // Calcular dimensões em pixels para o canvas (300 DPI padrão)
+  const canvasDimensions = calculatePixelDimensions(
+    albumSizeConfig.width, 
+    albumSizeConfig.height, 
+    300
+  )
+  
   // Estados principais
   const [photos, setPhotos] = useState<Photo[]>([])
   const [spreads, setSpreads] = useState<Spread[]>([])
@@ -93,12 +112,106 @@ export default function DiagramadorWorkspace({ project }: DiagramadorWorkspacePr
   const [selectedPage, setSelectedPage] = useState<'left' | 'right' | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [draggedPhoto, setDraggedPhoto] = useState<Photo | null>(null)
+  
+  // Estados de zoom e visualização
+  const [zoomLevel, setZoomLevel] = useState(0.5) // Começar com 50% para caber na tela
+  const [panPosition, setPanPosition] = useState({ x: 0, y: 0 })
+  const [isPanning, setIsPanning] = useState(false)
+  const [lastPanPoint, setLastPanPoint] = useState({ x: 0, y: 0 })
+  
+  // Refs
+  const canvasContainerRef = useRef<HTMLDivElement>(null)
+  
+  // Configuração do álbum
   const [albumConfig] = useState<AlbumConfig>({
-    width: 500,
-    height: 350,
-    dpi: 300,
-    bleed: 15
-  })
+      width: canvasDimensions.width,
+      height: canvasDimensions.height,
+      dpi: 300,
+      bleed: 15,
+      // Informações adicionais do tamanho
+      widthCm: albumSizeConfig.width,
+      heightCm: albumSizeConfig.height,
+      aspectRatio: albumSizeConfig.aspectRatio,
+      category: albumSizeConfig.category
+    })
+
+  // Controles de zoom
+  const zoomLevels = [0.1, 0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 2.0, 3.0, 4.0]
+  
+  const handleZoomIn = () => {
+    const currentIndex = zoomLevels.findIndex(level => level >= zoomLevel)
+    const nextIndex = Math.min(currentIndex + 1, zoomLevels.length - 1)
+    setZoomLevel(zoomLevels[nextIndex])
+  }
+  
+  const handleZoomOut = () => {
+    const currentIndex = zoomLevels.findIndex(level => level >= zoomLevel)
+    const prevIndex = Math.max(currentIndex - 1, 0)
+    setZoomLevel(zoomLevels[prevIndex])
+  }
+  
+  const handleZoomFit = () => {
+    if (!canvasContainerRef.current) return
+    
+    const container = canvasContainerRef.current
+    const containerWidth = container.clientWidth - 40 // padding
+    const containerHeight = container.clientHeight - 40 // padding
+    
+    const canvasWidth = albumConfig.width * 2 // lâmina dupla
+    const canvasHeight = albumConfig.height
+    
+    const scaleX = containerWidth / canvasWidth
+    const scaleY = containerHeight / canvasHeight
+    const scale = Math.min(scaleX, scaleY, 1.0) // não aumentar além de 100%
+    
+    setZoomLevel(scale)
+    setPanPosition({ x: 0, y: 0 }) // centralizar
+  }
+  
+  const handleZoomActualSize = () => {
+    setZoomLevel(1.0)
+    setPanPosition({ x: 0, y: 0 })
+  }
+  
+  // Controles de pan (arrastar para mover)
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (e.button === 1 || (e.button === 0 && e.altKey)) { // botão do meio ou Alt+click
+      setIsPanning(true)
+      setLastPanPoint({ x: e.clientX, y: e.clientY })
+      e.preventDefault()
+    }
+  }
+  
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (isPanning) {
+      const deltaX = e.clientX - lastPanPoint.x
+      const deltaY = e.clientY - lastPanPoint.y
+      
+      setPanPosition(prev => ({
+        x: prev.x + deltaX,
+        y: prev.y + deltaY
+      }))
+      
+      setLastPanPoint({ x: e.clientX, y: e.clientY })
+    }
+  }
+  
+  const handleMouseUp = () => {
+    setIsPanning(false)
+  }
+  
+  // Zoom com scroll do mouse
+  const handleWheel = (e: React.WheelEvent) => {
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault()
+      
+      const delta = e.deltaY > 0 ? -1 : 1
+      const currentIndex = zoomLevels.findIndex(level => level >= zoomLevel)
+      const newIndex = Math.max(0, Math.min(zoomLevels.length - 1, currentIndex + delta))
+      
+      setZoomLevel(zoomLevels[newIndex])
+    }
+  }
 
   const loadPhotos = useCallback(async () => {
     try {
@@ -396,9 +509,9 @@ export default function DiagramadorWorkspace({ project }: DiagramadorWorkspacePr
   const currentPageData = selectedPage ? currentSpread?.[`${selectedPage}Page`] : null
 
   return (
-    <div className="flex-1 flex flex-col h-[calc(100vh-73px)]">
-      {/* Barra de Ferramentas Superior */}
-      <div className="border-b bg-card px-4 py-2">
+    <div className="flex-1 flex flex-col overflow-hidden">
+      {/* Navbar Superior Fixa */}
+      <div className="border-b bg-card px-4 py-2 flex-shrink-0">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <div className="text-sm text-muted-foreground">
@@ -407,9 +520,51 @@ export default function DiagramadorWorkspace({ project }: DiagramadorWorkspacePr
             <div className="text-sm text-muted-foreground">
               {project.albumSize} • {albumConfig.dpi} DPI
             </div>
+            <Separator orientation="vertical" className="h-4" />
+            <div className="text-sm font-medium">
+              Zoom: {Math.round(zoomLevel * 100)}%
+            </div>
           </div>
           
           <div className="flex items-center space-x-2">
+            {/* Controles de Zoom */}
+            <div className="flex items-center space-x-1 border rounded-md">
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={handleZoomOut}
+                disabled={zoomLevel <= zoomLevels[0]}
+              >
+                <ZoomOut className="w-4 h-4" />
+              </Button>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={handleZoomFit}
+                title="Ajustar à tela"
+              >
+                <Square className="w-4 h-4" />
+              </Button>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={handleZoomActualSize}
+                title="Tamanho real (100%)"
+              >
+                100%
+              </Button>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={handleZoomIn}
+                disabled={zoomLevel >= zoomLevels[zoomLevels.length - 1]}
+              >
+                <ZoomIn className="w-4 h-4" />
+              </Button>
+            </div>
+            
+            <Separator orientation="vertical" className="h-6" />
+            
             <Button variant="outline" size="sm">
               <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
@@ -423,29 +578,25 @@ export default function DiagramadorWorkspace({ project }: DiagramadorWorkspacePr
               Layouts
             </Button>
             <Button onClick={handleExport}>
-              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
+              <Download className="w-4 h-4 mr-2" />
               Exportar
             </Button>
           </div>
         </div>
       </div>
 
-      {/* Área Principal */}
-      <div className="flex-1 flex">
-        {/* Painel Esquerdo - Galeria de Fotos */}
-        <div className="w-80 border-r bg-card flex-shrink-0">
+      {/* Área Principal com Layout Fixo */}
+      <div className="flex-1 flex min-h-0">
+        {/* Painel Esquerdo - Galeria de Fotos (Fixo) */}
+        <div className="w-80 border-r bg-card flex-shrink-0 flex flex-col">
           <PhotoGallery
             photos={photos}
-            projectId={project.id} // Passar o ID do projeto
+            projectId={project.id}
             onPhotoDragStart={handlePhotoDragStart}
             onPhotoDragEnd={() => setDraggedPhoto(null)}
             onPhotoImport={async (newPhotos) => {
-              // Adicionar as novas fotos ao estado
               setPhotos(prev => [...newPhotos, ...prev])
               
-              // Recarregar todas as fotos para garantir sincronização
               try {
                 const response = await fetch(`/api/photos?projectId=${project.id}`)
                 if (response.ok) {
@@ -461,25 +612,55 @@ export default function DiagramadorWorkspace({ project }: DiagramadorWorkspacePr
           />
         </div>
 
-        {/* Área Central - Canvas de Diagramação */}
-        <div className="flex-1">
-          {currentSpread && (
-            <DiagramCanvas
-              spread={currentSpread}
-              albumConfig={albumConfig}
-              selectedElement={selectedElement}
-              selectedPage={selectedPage}
-              onElementSelect={handleElementSelect}
-              onPageSelect={handlePageSelect}
-              onDeselectAll={handleDeselectAll}
-              onPhotoDrop={handlePhotoDrop}
-              draggedPhoto={draggedPhoto}
-            />
-          )}
+        {/* Área Central - Canvas de Diagramação com Scroll */}
+        <div className="flex-1 flex flex-col min-w-0">
+          {/* Informações do Canvas */}
+          <div className="flex items-center justify-center p-2 border-b bg-muted/30 flex-shrink-0">
+            <div className="text-xs text-muted-foreground">
+              {albumConfig.width * 2}×{albumConfig.height}px • Use Ctrl+Scroll para zoom • Alt+Click para mover
+            </div>
+          </div>
+          
+          {/* Container do Canvas com Scroll */}
+          <div 
+            ref={canvasContainerRef}
+            className="flex-1 overflow-auto bg-gray-100 relative"
+            onWheel={handleWheel}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseUp}
+            style={{ 
+              cursor: isPanning ? 'grabbing' : 'grab'
+            }}
+          >
+            <div 
+              className="flex justify-center items-center min-h-full p-8"
+              style={{
+                transform: `translate(${panPosition.x}px, ${panPosition.y}px)`,
+                transition: isPanning ? 'none' : 'transform 0.1s ease-out'
+              }}
+            >
+              {currentSpread && (
+                <DiagramCanvas
+                  spread={currentSpread}
+                  albumConfig={albumConfig}
+                  selectedElement={selectedElement}
+                  selectedPage={selectedPage}
+                  onElementSelect={handleElementSelect}
+                  onPageSelect={handlePageSelect}
+                  onDeselectAll={handleDeselectAll}
+                  onPhotoDrop={handlePhotoDrop}
+                  draggedPhoto={draggedPhoto}
+                  zoomLevel={zoomLevel}
+                />
+              )}
+            </div>
+          </div>
         </div>
 
-        {/* Painel Direito - Ferramentas */}
-        <div className="w-80 border-l bg-card">
+        {/* Painel Direito - Ferramentas (Fixo) */}
+        <div className="w-80 border-l bg-card flex-shrink-0">
           <ToolsPanel
             selectedElement={selectedElement}
             selectedPage={selectedPage}
@@ -491,7 +672,7 @@ export default function DiagramadorWorkspace({ project }: DiagramadorWorkspacePr
         </div>
       </div>
 
-      {/* Linha do Tempo - Fixa na parte inferior */}
+      {/* Timeline Inferior (Fixo) */}
       <div className="h-48 border-t flex-shrink-0">
         <SpreadTimeline
           spreads={spreads}

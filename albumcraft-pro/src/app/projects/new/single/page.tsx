@@ -7,6 +7,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import Image from 'next/image'
 
+import { ALBUM_SIZES, getPopularSizes, getSizesByCategory, formatSizeDisplay, AlbumSizeConfig } from '@/lib/album-sizes'
+
 interface FormData {
   name: string
   albumSize: string
@@ -41,7 +43,7 @@ export default function SingleAlbumPage() {
   const router = useRouter()
   const [formData, setFormData] = useState<FormData>({
     name: '',
-    albumSize: 'MEDIUM'
+    albumSize: 'SIZE_20X20' // Padrão para formato quadrado popular
   })
   const [photos, setPhotos] = useState<PhotoItem[]>([]) // Agora suporta fotos temporárias
   const [existingPhotos, setExistingPhotos] = useState<Photo[]>([])
@@ -51,13 +53,23 @@ export default function SingleAlbumPage() {
   const [isLoadingExisting, setIsLoadingExisting] = useState(false)
   const [error, setError] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const [selectedCategory, setSelectedCategory] = useState<'popular' | 'square' | 'landscape' | 'portrait'>('popular')
 
-  const albumSizes = [
-    { id: 'SMALL', name: '15x20cm', description: 'Ideal para álbuns pessoais' },
-    { id: 'MEDIUM', name: '20x30cm', description: 'Tamanho padrão mais popular' },
-    { id: 'LARGE', name: '30x40cm', description: 'Perfeito para apresentações' },
-    { id: 'EXTRA_LARGE', name: '40x50cm', description: 'Formato profissional' }
-  ]
+  // Obter tamanhos baseado na categoria selecionada
+  const getAlbumSizes = (): AlbumSizeConfig[] => {
+    switch (selectedCategory) {
+      case 'popular':
+        return getPopularSizes()
+      case 'square':
+        return getSizesByCategory('square')
+      case 'landscape':
+        return getSizesByCategory('landscape')
+      case 'portrait':
+        return getSizesByCategory('portrait')
+      default:
+        return getPopularSizes()
+    }
+  }
 
   const handleInputChange = (field: keyof FormData, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }))
@@ -290,7 +302,30 @@ export default function SingleAlbumPage() {
           }
 
           // Executar todos os uploads/updates em paralelo
-          await Promise.all(uploadPromises)
+          const results = await Promise.allSettled(uploadPromises)
+          
+          // Verificar resultados e capturar erros
+          const errors: string[] = []
+          for (let i = 0; i < results.length; i++) {
+            const result = results[i]
+            if (result.status === 'rejected') {
+              console.error(`Erro no upload ${i}:`, result.reason)
+              errors.push(`Erro no upload da foto ${i + 1}`)
+            } else {
+              // Verificar se a resposta foi bem-sucedida
+              const response = result.value
+              if (!response.ok) {
+                const errorData = await response.json().catch(() => ({ error: 'Erro desconhecido' }))
+                console.error(`Erro HTTP no upload ${i}:`, response.status, errorData)
+                errors.push(`Erro HTTP ${response.status} na foto ${i + 1}: ${errorData.error || 'Erro desconhecido'}`)
+              }
+            }
+          }
+          
+          if (errors.length > 0) {
+            console.error('Erros encontrados nos uploads:', errors)
+            setError(`Álbum criado, mas houve erros: ${errors.join(', ')}`)
+          }
 
           // Limpar URLs temporárias para evitar memory leaks
           photos.forEach(photo => {
@@ -435,8 +470,34 @@ export default function SingleAlbumPage() {
                 <label className="block text-sm font-medium mb-4">
                   Tamanho do Álbum *
                 </label>
+                
+                {/* Categorias de Tamanho */}
+                <div className="mb-4">
+                  <div className="flex flex-wrap gap-2">
+                    {[
+                      { key: 'popular', label: 'Populares' },
+                      { key: 'square', label: 'Quadrados' },
+                      { key: 'landscape', label: 'Paisagem' },
+                      { key: 'portrait', label: 'Retrato' }
+                    ].map((category) => (
+                      <button
+                        key={category.key}
+                        type="button"
+                        onClick={() => setSelectedCategory(category.key as any)}
+                        className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+                          selectedCategory === category.key
+                            ? 'bg-primary text-primary-foreground'
+                            : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                        }`}
+                      >
+                        {category.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {albumSizes.map((size) => (
+                  {getAlbumSizes().map((size) => (
                     <div
                       key={size.id}
                       className={`rounded-lg border p-4 cursor-pointer transition-colors ${
@@ -456,9 +517,19 @@ export default function SingleAlbumPage() {
                             <div className="w-full h-full rounded-full bg-white scale-50"></div>
                           )}
                         </div>
-                        <div>
-                          <h3 className="font-semibold">{size.name}</h3>
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between">
+                            <h3 className="font-semibold">{formatSizeDisplay(size)}</h3>
+                            <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded">
+                              {size.category}
+                            </span>
+                          </div>
                           <p className="text-sm text-muted-foreground">{size.description}</p>
+                          {size.isPopular && (
+                            <span className="inline-block mt-1 text-xs bg-orange-100 text-orange-800 px-2 py-0.5 rounded-full">
+                              Popular
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>

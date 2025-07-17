@@ -198,7 +198,7 @@ export async function DELETE(
 
     // Deletar arquivos do S3 se configurado
     if (isS3Configured() && existingProject.photos.length > 0) {
-      console.log(`Iniciando exclusão de ${existingProject.photos.length} fotos do S3 para o projeto ${params.id}`)
+      console.log(`Iniciando exclusão de ${existingProject.photos.length} fotos do S3`)
       
       try {
         s3DeletionResult = await deleteProjectFiles(existingProject.photos)
@@ -223,7 +223,7 @@ export async function DELETE(
       where: { id: params.id }
     })
 
-    console.log(`Projeto ${params.id} deletado com sucesso`)
+    console.log(`Projeto deletado com sucesso`)
     
     // Retornar resposta com informações sobre exclusões do S3
     const response: {

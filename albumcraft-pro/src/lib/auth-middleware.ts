@@ -29,13 +29,15 @@ export async function authenticateRequest(request: NextRequest): Promise<Authent
     // Verificar e decodificar o JWT
     const { payload } = await jwtVerify(token, secret)
     
-    return {
+    const user = {
       userId: payload.userId as string,
       email: payload.email as string,
       plan: payload.plan as string,
     }
+    
+    return user
   } catch (error) {
-    console.error('Authentication error:', error)
+    console.error('Erro de autenticação:', error)
     return null
   }
 }

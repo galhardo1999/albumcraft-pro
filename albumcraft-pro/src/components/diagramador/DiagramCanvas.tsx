@@ -57,6 +57,7 @@ interface DiagramCanvasProps {
   onDeselectAll: () => void
   onPhotoDrop: (x: number, y: number, page: 'left' | 'right') => void
   draggedPhoto: Photo | null
+  zoomLevel?: number
 }
 
 export default function DiagramCanvas({
@@ -67,14 +68,15 @@ export default function DiagramCanvas({
   onElementSelect,
   onPageSelect,
   onPhotoDrop,
-  draggedPhoto
+  draggedPhoto,
+  zoomLevel = 1.0
 }: DiagramCanvasProps) {
   const canvasRef = useRef<HTMLDivElement>(null)
   const [showGuides, setShowGuides] = useState(false)
   const [guides] = useState<{ x: number[], y: number[] }>({ x: [], y: [] })
   
-  // Zoom fixo em 100%
-  const scale = 1.0
+  // Usar o zoom level passado como prop
+  const scale = zoomLevel
 
   // Calcular dimensões do canvas
   const canvasWidth = albumConfig.width * 2 // Lâmina dupla
@@ -367,35 +369,7 @@ export default function DiagramCanvas({
 
           >
             {/* Réguas */}
-            <div className="absolute -top-6 left-0 right-0 h-6 bg-gray-200 border-b">
-              {/* Marcações da régua horizontal */}
-              {Array.from({ length: Math.ceil(canvasWidth / 100) }, (_, i) => (
-                <div
-                  key={i}
-                  className="absolute border-l border-gray-400"
-                  style={{ left: i * 100 * scale }}
-                >
-                  <span className="text-xs text-gray-600 ml-1">
-                    {i * 100}
-                  </span>
-                </div>
-              ))}
-            </div>
             
-            <div className="absolute -left-6 top-0 bottom-0 w-6 bg-gray-200 border-r">
-              {/* Marcações da régua vertical */}
-              {Array.from({ length: Math.ceil(canvasHeight / 100) }, (_, i) => (
-                <div
-                  key={i}
-                  className="absolute border-t border-gray-400"
-                  style={{ top: i * 100 * scale }}
-                >
-                  <span className="text-xs text-gray-600 ml-1 transform -rotate-90 origin-left">
-                    {i * 100}
-                  </span>
-                </div>
-              ))}
-            </div>
 
             {/* Divisor central */}
             <div

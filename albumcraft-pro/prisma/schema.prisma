@@ -23,13 +23,28 @@ enum ProjectStatus {
 }
 
 enum AlbumSize {
-  SMALL
-  MEDIUM
-  LARGE
-  EXTRA_LARGE
-  SIZE_30X30
-  SIZE_20X30
-  CUSTOM
+  // Formatos Quadrados
+  SIZE_15X15    // 15x15cm - Compacto
+  SIZE_20X20    // 20x20cm - Clássico
+  SIZE_25X25    // 25x25cm - Premium
+  SIZE_30X30    // 30x30cm - Grande
+  
+  // Formatos Paisagem
+  SIZE_20X15    // 20x15cm - Compacto
+  SIZE_30X20    // 30x20cm - Popular
+  SIZE_40X30    // 40x30cm - Grande
+  
+  // Formatos Retrato
+  SIZE_15X20    // 15x20cm - Clássico
+  SIZE_20X30    // 20x30cm - Popular
+  SIZE_30X40    // 30x40cm - Profissional
+  
+  // Compatibilidade (deprecated)
+  SMALL         // Mapeado para SIZE_15X20
+  MEDIUM        // Mapeado para SIZE_20X30
+  LARGE         // Mapeado para SIZE_30X40
+  EXTRA_LARGE   // Mapeado para SIZE_40X30
+  CUSTOM        // Personalizado
 }
 
 enum Template {
@@ -75,6 +90,9 @@ model Project {
   status       ProjectStatus @default(DRAFT)
   creationType CreationType  @map("creation_type") @default(SINGLE)
   group        String?       // Nome do grupo (evento, escola, etc.)
+  eventName    String?       @map("event_name") // Nome do evento para criação em lote
+  pageCount    Int?          @map("page_count") // Número de páginas do álbum
+  format       String?       // Formato do álbum (ex: 20x20, 30x20)
   settings     Json?
   createdAt    DateTime      @default(now()) @map("created_at")
   updatedAt    DateTime      @updatedAt @map("updated_at")

@@ -22,7 +22,6 @@ export default function HomePage() {
         }
       } catch {
         // Usuário não autenticado, continuar na página inicial
-        console.log('User not authenticated')
       }
     }
 

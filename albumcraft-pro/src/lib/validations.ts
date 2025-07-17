@@ -29,7 +29,16 @@ export const VerifyResetTokenSchema = z.object({
 export const CreateProjectSchema = z.object({
   name: z.string().min(1, 'Nome é obrigatório').max(100, 'Nome muito longo'),
   description: z.string().max(500, 'Descrição muito longa').optional(),
-  albumSize: z.enum(['SMALL', 'MEDIUM', 'LARGE', 'EXTRA_LARGE', 'SIZE_30X30', 'SIZE_20X30', 'CUSTOM']),
+  albumSize: z.enum([
+    // Formatos Quadrados
+    'SIZE_15X15', 'SIZE_20X20', 'SIZE_25X25', 'SIZE_30X30',
+    // Formatos Paisagem  
+    'SIZE_20X15', 'SIZE_30X20', 'SIZE_40X30',
+    // Formatos Retrato
+    'SIZE_15X20', 'SIZE_20X30', 'SIZE_30X40',
+    // Compatibilidade (deprecated)
+    'SMALL', 'MEDIUM', 'LARGE', 'EXTRA_LARGE', 'CUSTOM'
+  ]),
   template: z.enum(['classic', 'modern', 'artistic', 'minimal']).optional(),
   status: z.enum(['DRAFT', 'IN_PROGRESS', 'COMPLETED']).optional(),
   creationType: z.enum(['SINGLE', 'BATCH']).optional(),

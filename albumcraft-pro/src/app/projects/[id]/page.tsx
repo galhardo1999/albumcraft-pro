@@ -52,6 +52,17 @@ export default function ProjectDiagramadorPage() {
     }
   }, [params.id, fetchProject])
 
+  // Prevenir scroll na página do diagramador
+  useEffect(() => {
+    // Adicionar classe ao body para prevenir scroll
+    document.body.style.overflow = 'hidden'
+    
+    // Cleanup: restaurar scroll quando sair da página
+    return () => {
+      document.body.style.overflow = 'auto'
+    }
+  }, [])
+
   const handleLogout = async () => {
     try {
       await fetch('/api/auth/logout', { 
@@ -92,9 +103,9 @@ export default function ProjectDiagramadorPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="diagramador-page h-screen bg-background flex flex-col overflow-hidden">
       {/* Header */}
-      <header className="border-b bg-card">
+      <header className="border-b bg-card flex-shrink-0">
         <div className="flex items-center justify-between px-6 py-4">
           <div className="flex items-center space-x-4">
             <Button 

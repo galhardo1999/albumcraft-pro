@@ -20,7 +20,8 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       console.error('Erro do Google OAuth:', error)
-      return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/auth/login?error=google_oauth_error`)
+      const errorParam = searchParams.get('error_description') || error
+      return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/auth/login?error=google_oauth_error&details=${encodeURIComponent(errorParam)}`)
     }
 
     if (!code) {

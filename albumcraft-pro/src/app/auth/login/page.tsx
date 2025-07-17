@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
@@ -13,6 +13,40 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
   const router = useRouter()
+
+  useEffect(() => {
+    // Verificar se há erro nos parâmetros da URL (ex: Google OAuth)
+    const urlParams = new URLSearchParams(window.location.search)
+    const urlError = urlParams.get('error')
+    const errorDetails = urlParams.get('details')
+    
+    if (urlError) {
+      let errorMessage = 'Erro de autenticação'
+      
+      switch (urlError) {
+        case 'google_oauth_error':
+          errorMessage = errorDetails ? `Erro do Google: ${decodeURIComponent(errorDetails)}` : 'Erro ao autenticar com Google'
+          break
+        case 'missing_code':
+          errorMessage = 'Código de autorização não recebido'
+          break
+        case 'invalid_token':
+          errorMessage = 'Token de autenticação inválido'
+          break
+        case 'missing_email':
+          errorMessage = 'Email não fornecido pelo Google'
+          break
+        case 'server_error':
+          errorMessage = 'Erro interno do servidor'
+          break
+      }
+      
+      setError(errorMessage)
+      
+      // Limpar parâmetros da URL
+      window.history.replaceState({}, document.title, window.location.pathname)
+    }
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

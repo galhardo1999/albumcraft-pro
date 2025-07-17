@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
     
     // TODO: Aqui você integraria com um serviço de email (SendGrid, Resend, etc.)
     // Por enquanto, vamos simular o envio do email
-    console.log(`Reset password link for ${user.email}: http://localhost:3000/auth/reset-password?token=${resetToken}`)
+    console.log('Link de reset de senha gerado com sucesso')
     
     // Em produção, você enviaria um email como este:
     /*

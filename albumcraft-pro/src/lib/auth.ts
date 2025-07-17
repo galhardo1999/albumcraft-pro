@@ -1,4 +1,5 @@
 import bcrypt from 'bcryptjs'
+import { jwtVerify } from 'jose'
 
 export class AuthService {
   static async hashPassword(password: string): Promise<string> {
@@ -12,6 +13,16 @@ export class AuthService {
 
   static generateSecureToken(): string {
     return crypto.randomUUID()
+  }
+}
+
+export async function verifyToken(token: string): Promise<{ valid: boolean; payload?: Record<string, unknown> }> {
+  try {
+    const secret = new TextEncoder().encode(process.env.NEXTAUTH_SECRET || 'fallback-secret')
+    const { payload } = await jwtVerify(token, secret)
+    return { valid: true, payload: payload as Record<string, unknown> }
+  } catch {
+    return { valid: false }
   }
 }
 

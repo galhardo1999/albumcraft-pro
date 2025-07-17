@@ -207,25 +207,44 @@ export default function SpreadTimeline({
           </span>
         </div>
         
-        <div className="flex items-center space-x-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={scrollToCurrentSpread}
-            className="text-xs transition-colors"
-            title="Centralizar visualização (Ctrl + 0)"
-          >
-            📍 Centralizar
-          </Button>
+        <div className="flex items-center space-x-4">
+          {/* Navegação rápida */}
+          <div className="flex items-center space-x-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => onSpreadSelect(Math.max(0, currentSpreadIndex - 1))}
+              disabled={currentSpreadIndex === 0}
+              className="text-xs"
+            >
+              ← Anterior
+            </Button>
+            
+            <div className="text-xs text-muted-foreground px-2">
+              {currentSpreadIndex + 1} de {spreads.length}
+            </div>
+            
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => onSpreadSelect(Math.min(spreads.length - 1, currentSpreadIndex + 1))}
+              disabled={currentSpreadIndex === spreads.length - 1}
+              className="text-xs"
+            >
+              Próxima →
+            </Button>
+          </div>
           
-          <Button
-            onClick={onSpreadAdd}
-            size="sm"
-            className="text-xs transition-colors"
-            title="Adicionar nova lâmina (Ctrl + N)"
-          >
-            + Adicionar Lâmina
-          </Button>
+          <div className="flex items-center space-x-2">
+            <Button
+              onClick={onSpreadAdd}
+              size="sm"
+              className="text-xs transition-colors"
+              title="Adicionar nova lâmina (Ctrl + N)"
+            >
+              + Adicionar Lâmina
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -257,38 +276,6 @@ export default function SpreadTimeline({
             <div className="text-xs">Nova Lâmina</div>
           </div>
         </Card>
-      </div>
-
-      {/* Navegação rápida */}
-      <div className="flex items-center justify-center space-x-2 p-2 border-t bg-muted/20">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => onSpreadSelect(Math.max(0, currentSpreadIndex - 1))}
-          disabled={currentSpreadIndex === 0}
-          className="text-xs"
-        >
-          ← Anterior
-        </Button>
-        
-        <div className="text-xs text-muted-foreground px-3">
-          {currentSpreadIndex + 1} de {spreads.length}
-        </div>
-        
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => onSpreadSelect(Math.min(spreads.length - 1, currentSpreadIndex + 1))}
-          disabled={currentSpreadIndex === spreads.length - 1}
-          className="text-xs"
-        >
-          Próxima →
-        </Button>
-      </div>
-
-      {/* Atalhos de teclado */}
-      <div className="text-xs text-muted-foreground text-center p-2 border-t">
-        💡 Use ← → para navegar | Clique para selecionar | Clique duplo para duplicar
       </div>
     </div>
   )

@@ -1,5 +1,15 @@
 /* Estilos específicos para o Diagramador */
 
+/* Prevenir scroll na página do diagramador */
+.diagramador-page {
+  height: 100vh;
+  overflow: hidden;
+}
+
+.diagramador-page body {
+  overflow: hidden;
+}
+
 /* Scrollbar customizada */
 .scrollbar-thin {
   scrollbar-width: thin;
