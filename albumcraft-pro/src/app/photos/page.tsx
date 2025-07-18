@@ -1,15 +1,11 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useSession } from 'next-auth/react'
-import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
-import { Trash2, Search, Image as ImageIcon, Calendar, User } from 'lucide-react'
-import { toast } from 'sonner'
-import Image from 'next/image'
+import { Trash2, Search, Image as ImageIcon, Calendar, User, AlertTriangle } from 'lucide-react'
 
 interface Photo {
   id: string
@@ -30,55 +26,45 @@ interface Photo {
 }
 
 export default function PhotosManagementPage() {
-  const { data: session, status } = useSession()
-  const router = useRouter()
-
-  // Redirect if not authenticated
-  useEffect(() => {
-    if (status === 'loading') return // Still loading
-    if (!session) {
-      router.push('/auth/signin')
-      return
-    }
-  }, [session, status, router])
   const [photos, setPhotos] = useState<Photo[]>([])
   const [filteredPhotos, setFilteredPhotos] = useState<Photo[]>([])
   const [searchTerm, setSearchTerm] = useState('')
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState('')
-  const [deletingPhotoId, setDeletingPhotoId] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [deletingIds, setDeletingIds] = useState<string[]>([])
+  const [error, setError] = useState<string | null>(null)
 
   // Buscar fotos do usuário
   const fetchPhotos = async () => {
     try {
-      setIsLoading(true)
+      setLoading(true)
+      setError(null)
+      
       const response = await fetch('/api/photos', {
-        credentials: 'include'
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
       })
 
       if (!response.ok) {
-        if (response.status === 401) {
-          logout()
-          return
-        }
-        throw new Error('Erro ao carregar fotos')
+        throw new Error('Erro ao buscar fotos')
       }
 
       const data = await response.json()
       setPhotos(data.photos || [])
-      setError('')
+      setFilteredPhotos(data.photos || [])
     } catch (error) {
       console.error('Erro ao buscar fotos:', error)
-      setError('Erro ao carregar fotos')
+      setError(error instanceof Error ? error.message : 'Erro desconhecido')
     } finally {
-      setIsLoading(false)
+      setLoading(false)
     }
   }
 
   // Filtrar fotos por termo de busca
   useEffect(() => {
     const filtered = photos.filter(photo =>
-      photo.name.toLowerCase().includes(searchTerm.toLowerCase())
+      photo.originalName.toLowerCase().includes(searchTerm.toLowerCase())
     )
     setFilteredPhotos(filtered)
   }, [photos, searchTerm])
@@ -89,38 +75,37 @@ export default function PhotosManagementPage() {
   }, [])
 
   // Função para deletar foto
-  const deletePhoto = async (photoId: string) => {
-    if (!confirm('Tem certeza que deseja excluir esta foto? Esta ação não pode ser desfeita.')) {
+  const handleDeletePhoto = async (photoId: string, filename: string) => {
+    if (!confirm(`Tem certeza que deseja excluir a foto "${filename}"? Esta ação não pode ser desfeita.`)) {
       return
     }
 
+    setDeletingIds(prev => [...prev, photoId])
+
     try {
-      setDeletingPhotoId(photoId)
-      
       const response = await fetch(`/api/photos/${photoId}`, {
         method: 'DELETE',
-        credentials: 'include'
+        headers: {
+          'Content-Type': 'application/json',
+        },
       })
 
+      const result = await response.json()
+
       if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.message || 'Erro ao deletar foto')
+        throw new Error(result.error || 'Erro ao excluir foto')
       }
 
-      const result = await response.json()
-      console.log('✅ Foto deletada:', result)
-
-      // Remover foto da lista local
+      // Remove a foto da lista local
       setPhotos(prev => prev.filter(photo => photo.id !== photoId))
+      setFilteredPhotos(prev => prev.filter(photo => photo.id !== photoId))
       
-      // Mostrar feedback de sucesso
-      alert(`Foto deletada com sucesso!\n\nDetalhes:\n- Arquivos S3 deletados: ${result.s3Deletion.totalDeleted}\n- Erros: ${result.s3Deletion.hasErrors ? 'Sim' : 'Não'}`)
-      
+      alert(`✅ Foto "${filename}" excluída com sucesso!\n\nDetalhes:\n${result.message}`)
     } catch (error) {
-      console.error('❌ Erro ao deletar foto:', error)
-      alert(`Erro ao deletar foto: ${error instanceof Error ? error.message : 'Erro desconhecido'}`)
+      console.error('Erro ao excluir foto:', error)
+      alert(`❌ Erro ao excluir foto: ${error instanceof Error ? error.message : 'Erro desconhecido'}`)
     } finally {
-      setDeletingPhotoId(null)
+      setDeletingIds(prev => prev.filter(id => id !== photoId))
     }
   }
 
@@ -142,7 +127,7 @@ export default function PhotosManagementPage() {
     })
   }
 
-  if (isLoading) {
+  if (loading) {
     return (
       <div className="container mx-auto p-6">
         <div className="flex items-center justify-center h-64">
@@ -197,7 +182,7 @@ export default function PhotosManagementPage() {
       {filteredPhotos.length === 0 ? (
         <Card>
           <CardContent className="p-12 text-center">
-            <Upload className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+            <ImageIcon className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
             <h3 className="text-lg font-semibold mb-2">
               {searchTerm ? 'Nenhuma foto encontrada' : 'Nenhuma foto encontrada'}
             </h3>
@@ -214,64 +199,56 @@ export default function PhotosManagementPage() {
           {filteredPhotos.map((photo) => (
             <Card key={photo.id} className="overflow-hidden">
               <div className="aspect-square relative bg-muted">
-                <Image
-                  src={photo.url}
-                  alt={photo.name}
-                  fill
-                  className="object-cover"
+                <img
+                  src={photo.thumbnailUrl || photo.url}
+                  alt={photo.originalName}
+                  className="w-full h-full object-cover"
                 />
               </div>
               <CardContent className="p-4">
-                <h3 className="font-medium truncate mb-2" title={photo.name}>
-                  {photo.name}
+                <h3 className="font-medium truncate mb-2" title={photo.originalName}>
+                  {photo.originalName}
                 </h3>
-                <div className="space-y-1 text-sm text-muted-foreground">
-                  <div className="flex justify-between">
-                    <span>Dimensões:</span>
-                    <span>{photo.width}×{photo.height}</span>
+                <div className="space-y-2 text-sm text-muted-foreground mb-4">
+                  <div className="flex items-center gap-2">
+                    <Calendar className="h-3 w-3" />
+                    <span>{formatDate(photo.uploadedAt)}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span>Tamanho:</span>
-                    <span>{formatFileSize(photo.fileSize)}</span>
+                  <div className="flex items-center gap-2">
+                    <ImageIcon className="h-3 w-3" />
+                    <span>{formatFileSize(photo.size)}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span>Criado:</span>
-                    <span>{formatDate(photo.createdAt)}</span>
+                  <div className="flex items-center gap-2">
+                    <User className="h-3 w-3" />
+                    <span className="truncate">{photo.filename}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span>S3:</span>
-                    <span className={photo.isS3Stored ? 'text-green-600' : 'text-orange-600'}>
-                      {photo.isS3Stored ? 'Sim' : 'Não'}
-                    </span>
-                  </div>
-                  {photo.projectId && (
-                    <div className="flex justify-between">
-                      <span>Projeto:</span>
-                      <span className="text-blue-600">Associada</span>
+                  {photo.project && (
+                    <div className="flex items-center gap-2">
+                      <Badge variant="secondary" className="text-xs">
+                        {photo.project.name}
+                      </Badge>
                     </div>
                   )}
                 </div>
-                <div className="mt-4 pt-4 border-t">
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    onClick={() => deletePhoto(photo.id)}
-                    disabled={deletingPhotoId === photo.id}
-                    className="w-full"
-                  >
-                    {deletingPhotoId === photo.id ? (
-                      <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                        Deletando...
-                      </>
-                    ) : (
-                      <>
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        Excluir Foto
-                      </>
-                    )}
-                  </Button>
-                </div>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => handleDeletePhoto(photo.id, photo.originalName)}
+                  disabled={deletingIds.includes(photo.id)}
+                  className="w-full"
+                >
+                  {deletingIds.includes(photo.id) ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Deletando...
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Excluir Foto
+                    </>
+                  )}
+                </Button>
               </CardContent>
             </Card>
           ))}
