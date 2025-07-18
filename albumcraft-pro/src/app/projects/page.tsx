@@ -141,10 +141,15 @@ export default function ProjectsPage() {
     try {
       const response = await fetch(`/api/projects/${projectToDelete.id}`, {
         method: 'DELETE',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
       })
 
       if (!response.ok) {
-        throw new Error('Erro ao excluir álbum')
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.message || 'Erro ao excluir álbum')
       }
 
       const result = await response.json()
@@ -154,34 +159,37 @@ export default function ProjectsPage() {
       setDeleteModalOpen(false)
       setProjectToDelete(null)
 
-      // Mostrar mensagem de sucesso com detalhes do S3
-      if (result.s3Result) {
-        const { totalFiles, successCount, errorCount, ignoredCount, warnings } = result.s3Result
+      // Mostrar mensagem de sucesso com detalhes da exclusão
+      let message = `Álbum "${projectToDelete.name}" excluído com sucesso!`
+      
+      if (result.deletionSummary) {
+        const { photosProcessed, s3FilesDeleted, s3Errors, hasErrors } = result.deletionSummary
         
-        let message = `Álbum "${projectToDelete.name}" excluído com sucesso!`
-        
-        if (totalFiles > 0) {
-          message += ` ${successCount} arquivo(s) removido(s) do S3.`
+        if (photosProcessed > 0) {
+          message += ` ${photosProcessed} foto(s) processada(s).`
           
-          if (errorCount > 0) {
-            message += ` ${errorCount} arquivo(s) não puderam ser removidos do S3.`
+          if (s3FilesDeleted > 0) {
+            message += ` ${s3FilesDeleted} arquivo(s) removido(s) do S3.`
           }
           
-          if (ignoredCount > 0) {
-            message += ` ${ignoredCount} arquivo(s) já não existiam no S3.`
+          if (s3Errors > 0) {
+            message += ` ${s3Errors} erro(s) na exclusão do S3.`
           }
         } else {
-          message += ' Nenhum arquivo encontrado no S3.'
+          message += ' Nenhuma foto encontrada para exclusão.'
         }
 
-        console.log(message)
-        if (warnings && warnings.length > 0) {
-          console.warn('Avisos da exclusão S3:', warnings)
+        console.log('Resultado da exclusão:', result)
+        
+        if (hasErrors && result.details?.s3Errors?.length > 0) {
+          console.warn('Erros na exclusão do S3:', result.details.s3Errors)
         }
       }
+      
+      console.log(message)
     } catch (error) {
       console.error('Erro ao excluir álbum:', error)
-      setError('Erro ao excluir álbum. Tente novamente.')
+      setError(`Erro ao excluir álbum: ${error instanceof Error ? error.message : 'Erro desconhecido'}`)
     } finally {
       setIsDeleting(false)
     }

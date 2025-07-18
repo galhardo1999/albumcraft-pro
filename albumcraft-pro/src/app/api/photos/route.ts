@@ -16,54 +16,96 @@ const prisma = new PrismaClient()
 // GET - Buscar fotos do usuário
 export async function GET(request: NextRequest) {
   try {
-    // ✅ Autenticar usuário
+    // Verificar autenticação usando o middleware existente
     const user = await authenticateRequest(request)
+    
     if (!user) {
       return createAuthResponse('Token de autenticação inválido ou expirado')
     }
 
+    // Obter parâmetros da query
     const { searchParams } = new URL(request.url)
-    const projectId = searchParams.get('projectId') // Filtrar por projeto
+    const projectId = searchParams.get('projectId')
+    const limit = parseInt(searchParams.get('limit') || '50')
+    const offset = parseInt(searchParams.get('offset') || '0')
 
-    // Construir filtros para a busca
-    const whereClause: { userId: string; projectId?: string } = {
+    console.log('🔍 GET /api/photos - Parâmetros:', {
+      userId: user.userId,
+      projectId,
+      limit,
+      offset
+    })
+
+    // Construir filtros
+    const whereClause: any = {
       userId: user.userId
     }
 
-    // Se projectId foi fornecido, filtrar por projeto específico
+    // Filtrar por projeto se especificado
     if (projectId) {
       whereClause.projectId = projectId
+      console.log('📂 Filtrando fotos do projeto:', projectId)
     }
 
+    // Buscar fotos no banco de dados
     const photos = await prisma.photo.findMany({
       where: whereClause,
       orderBy: {
         uploadedAt: 'desc'
+      },
+      take: limit,
+      skip: offset,
+      select: {
+        id: true,
+        filename: true,
+        originalUrl: true,
+        thumbnailUrl: true,
+        mediumUrl: true,
+        width: true,
+        height: true,
+        fileSize: true,
+        projectId: true,
+        isS3Stored: true,
+        s3Key: true,
+        uploadedAt: true,
+        metadata: true
       }
     })
 
-    // Transformar para o formato esperado pelo frontend
-    const formattedPhotos = photos.map(photo => ({
-      id: photo.id,
-      name: photo.filename,
-      url: photo.originalUrl,
-      width: photo.width,
-      height: photo.height,
-      fileSize: photo.fileSize,
-      uploadedAt: photo.uploadedAt.toISOString(),
-      projectId: photo.projectId // Incluir projectId na resposta
-    }))
+    console.log(`📸 Encontradas ${photos.length} fotos para o usuário ${user.userId}`)
+    
+    if (projectId) {
+      console.log(`📂 Fotos do projeto ${projectId}:`, photos.map(p => ({ id: p.id, filename: p.filename, projectId: p.projectId })))
+    }
 
-    return NextResponse.json({ 
-      success: true, 
-      data: formattedPhotos 
+    // Contar total de fotos (para paginação)
+    const totalPhotos = await prisma.photo.count({
+      where: whereClause
     })
+
+    return NextResponse.json({
+      success: true,
+      data: photos,
+      pagination: {
+        total: totalPhotos,
+        limit,
+        offset,
+        hasMore: offset + photos.length < totalPhotos
+      }
+    })
+
   } catch (error) {
-    console.error('Erro ao buscar fotos:', error)
-    return NextResponse.json({ 
-      success: false, 
-      error: 'Erro interno do servidor' 
-    }, { status: 500 })
+    console.error('❌ Erro ao buscar fotos:', error)
+    return NextResponse.json(
+      { 
+        success: false,
+        message: 'Erro interno do servidor',
+        error: error instanceof Error ? error.message : 'Erro desconhecido'
+      },
+      { status: 500 }
+    )
+  } finally {
+    await prisma.$disconnect()
   }
 }
 

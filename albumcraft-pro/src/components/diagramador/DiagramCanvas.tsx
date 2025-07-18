@@ -5,12 +5,14 @@ import Image from 'next/image'
 
 interface Photo {
   id: string
-  url: string
-  name: string
+  originalUrl: string
+  filename: string
   width: number
   height: number
   fileSize: number
-  projectId?: string | null // Incluir projectId
+  projectId?: string | null
+  thumbnailUrl?: string
+  mediumUrl?: string
 }
 
 interface DiagramElement {

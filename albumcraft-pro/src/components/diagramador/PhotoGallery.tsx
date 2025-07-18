@@ -7,12 +7,14 @@ import Image from 'next/image'
 
 interface Photo {
   id: string
-  url: string
-  name: string
+  originalUrl: string
+  filename: string
   width: number
   height: number
   fileSize: number
-  projectId?: string | null // Incluir projectId
+  projectId?: string | null
+  thumbnailUrl?: string
+  mediumUrl?: string
 }
 
 interface PhotoGalleryProps {
@@ -29,7 +31,7 @@ export default function PhotoGallery({ photos, onPhotoDragStart, onPhotoDragEnd,
 
   // Filtrar fotos apenas por busca
   const filteredPhotos = photos.filter(photo => 
-    photo.name.toLowerCase().includes(searchTerm.toLowerCase())
+    photo.filename.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
   const handleImportClick = () => {
@@ -103,8 +105,8 @@ export default function PhotoGallery({ photos, onPhotoDragStart, onPhotoDragEnd,
       {/* Thumbnail */}
       <div className="aspect-square bg-muted relative overflow-hidden">
         <Image
-          src={photo.url}
-          alt={photo.name}
+          src={photo.thumbnailUrl || photo.originalUrl}
+          alt={photo.filename}
           width={200}
           height={200}
           className="w-full h-full object-cover"
@@ -113,8 +115,8 @@ export default function PhotoGallery({ photos, onPhotoDragStart, onPhotoDragEnd,
       
       {/* Informações da foto */}
       <div className="p-2">
-        <p className="text-xs font-medium truncate" title={photo.name}>
-          {photo.name}
+        <p className="text-xs font-medium truncate" title={photo.filename}>
+          {photo.filename}
         </p>
         <div className="flex justify-between items-center mt-1">
           <span className="text-xs text-muted-foreground">

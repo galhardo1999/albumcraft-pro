@@ -130,13 +130,24 @@ export async function deleteMultipleFromS3(keys: string[]): Promise<{
   deleted: string[]
   errors: Array<{ key: string; error: string }>
 }> {
+  console.log(`🔍 deleteMultipleFromS3 chamada com ${keys.length} chaves`)
+  
   if (!isS3Configured()) {
+    console.log(`❌ S3 não configurado, lançando erro`)
     throw new Error('S3 não está configurado. Verifique as variáveis de ambiente.')
   }
 
   if (keys.length === 0) {
+    console.log(`⚠️ Nenhuma chave fornecida, retornando resultado vazio`)
     return { deleted: [], errors: [] }
   }
+
+  console.log(`🔧 Configuração do S3:`, {
+    bucket: BUCKET_NAME,
+    region: process.env.AWS_REGION,
+    hasAccessKey: !!process.env.AWS_ACCESS_KEY_ID,
+    hasSecretKey: !!process.env.AWS_SECRET_ACCESS_KEY
+  })
 
   const deleted: string[] = []
   const errors: Array<{ key: string; error: string }> = []
@@ -147,6 +158,8 @@ export async function deleteMultipleFromS3(keys: string[]): Promise<{
   for (let i = 0; i < keys.length; i += batchSize) {
     const batch = keys.slice(i, i + batchSize)
     
+    console.log(`🗑️ Processando lote ${Math.floor(i/batchSize) + 1} com ${batch.length} arquivos:`, batch)
+    
     const command = new DeleteObjectsCommand({
       Bucket: BUCKET_NAME,
       Delete: {
@@ -156,13 +169,20 @@ export async function deleteMultipleFromS3(keys: string[]): Promise<{
     })
 
     try {
+      console.log(`📡 Enviando comando de exclusão para o S3...`)
       const result = await s3Client.send(command)
+      
+      console.log(`📥 Resposta do S3 recebida:`, {
+        deleted: result.Deleted?.length || 0,
+        errors: result.Errors?.length || 0
+      })
       
       // Adicionar arquivos deletados com sucesso
       if (result.Deleted) {
         result.Deleted.forEach(deleted_obj => {
           if (deleted_obj.Key) {
             deleted.push(deleted_obj.Key)
+            console.log(`✅ Arquivo deletado: ${deleted_obj.Key}`)
           }
         })
       }
@@ -175,11 +195,13 @@ export async function deleteMultipleFromS3(keys: string[]): Promise<{
               key: error.Key,
               error: error.Message
             })
+            console.log(`❌ Erro ao deletar ${error.Key}: ${error.Message}`)
           }
         })
       }
       
     } catch (error) {
+      console.error(`❌ Erro ao executar comando de exclusão:`, error)
       // Se o lote inteiro falhar, adicionar todos como erro
       batch.forEach(key => {
         errors.push({
@@ -190,6 +212,13 @@ export async function deleteMultipleFromS3(keys: string[]): Promise<{
     }
   }
 
+  console.log(`🏁 Resultado final da exclusão:`, {
+    totalDeleted: deleted.length,
+    totalErrors: errors.length,
+    deleted,
+    errors
+  })
+
   return { deleted, errors }
 }
 
@@ -198,7 +227,10 @@ export async function deletePhotoVariants(s3Key: string): Promise<{
   deleted: string[]
   errors: Array<{ key: string; error: string }>
 }> {
+  console.log(`🔍 deletePhotoVariants chamada com s3Key: ${s3Key}`)
+  
   if (!s3Key) {
+    console.log(`⚠️ s3Key vazio, retornando resultado vazio`)
     return { deleted: [], errors: [] }
   }
 
@@ -208,7 +240,16 @@ export async function deletePhotoVariants(s3Key: string): Promise<{
     generateMediumKey(s3Key) // Medium
   ]
 
-  return await deleteMultipleFromS3(keys)
+  console.log(`🗑️ Tentando deletar as seguintes chaves:`, keys)
+
+  const result = await deleteMultipleFromS3(keys)
+  
+  console.log(`✅ Resultado da exclusão:`, {
+    deleted: result.deleted,
+    errors: result.errors
+  })
+
+  return result
 }
 
 // Interface para resultado de exclusão de projeto

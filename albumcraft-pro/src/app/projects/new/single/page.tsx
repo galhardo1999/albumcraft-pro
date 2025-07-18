@@ -79,7 +79,12 @@ export default function SingleAlbumPage() {
   const loadExistingPhotos = async () => {
     try {
       setIsLoadingExisting(true)
-      const response = await fetch('/api/photos')
+      const response = await fetch('/api/photos', {
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      })
       
       if (!response.ok) {
         throw new Error('Erro ao carregar fotos existentes')

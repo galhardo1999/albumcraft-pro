@@ -30,12 +30,14 @@ interface Project {
 
 interface Photo {
   id: string
-  url: string
-  name: string
+  originalUrl: string
+  filename: string
   width: number
   height: number
   fileSize: number
-  projectId?: string | null // Incluir projectId
+  projectId?: string | null
+  thumbnailUrl?: string
+  mediumUrl?: string
 }
 
 interface DiagramElement {
@@ -215,31 +217,49 @@ export default function DiagramadorWorkspace({ project }: DiagramadorWorkspacePr
 
   const loadPhotos = useCallback(async () => {
     try {
-      setIsLoading(true)
-      
-      // Buscar fotos reais do projeto específico
-      const response = await fetch(`/api/photos?projectId=${project.id}`)
+      console.log('🔄 Carregando fotos do projeto:', project.id)
+      const response = await fetch(`/api/photos?projectId=${project.id}`, {
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      })
       
       if (response.ok) {
         const data = await response.json()
-        if (data.success) {
+        console.log('📸 Resposta da API de fotos:', data)
+        
+        if (data.success && data.data && Array.isArray(data.data)) {
+          console.log(`✅ ${data.data.length} fotos encontradas para o projeto`)
           setPhotos(data.data)
+          
+          // Se não há fotos reais, usar fotos de exemplo apenas para demonstração
+          if (data.data.length === 0) {
+            console.log('📷 Nenhuma foto real encontrada, usando fotos de exemplo para demonstração')
+            setPhotos(samplePhotos)
+          }
         } else {
-          console.error('Erro ao carregar fotos:', data.error)
-          // Fallback para dados de exemplo se não houver fotos
+          console.log('📷 Estrutura de dados inválida, usando fotos de exemplo')
+          console.log('Dados recebidos:', data)
           setPhotos(samplePhotos)
         }
       } else {
-        console.error('Erro na requisição de fotos')
-        // Fallback para dados de exemplo
-        setPhotos(samplePhotos)
+        const errorData = await response.json().catch(() => ({ error: 'Erro desconhecido' }))
+        console.error('❌ Erro HTTP ao carregar fotos:', response.status, errorData)
+        
+        // Só usar fotos de exemplo se for erro de autorização ou não encontrado
+        if (response.status === 401 || response.status === 404) {
+          console.log('📷 Usando fotos de exemplo devido ao erro de autorização/não encontrado')
+          setPhotos(samplePhotos)
+        } else {
+          // Para outros erros, deixar vazio para mostrar o problema real
+          setPhotos([])
+        }
       }
     } catch (error) {
-      console.error('Erro ao carregar fotos:', error)
-      // Fallback para dados de exemplo em caso de erro
-      setPhotos(samplePhotos)
-    } finally {
-      setIsLoading(false)
+      console.error('❌ Erro de rede ao carregar fotos:', error)
+      // Em caso de erro de rede, deixar vazio para mostrar o problema
+      setPhotos([])
     }
   }, [project.id])
 
@@ -347,7 +367,7 @@ export default function DiagramadorWorkspace({ project }: DiagramadorWorkspacePr
       opacity: 1,
       zIndex: spreads[currentSpreadIndex][`${page}Page`].elements.length + 1,
       data: {
-        url: draggedPhoto.url,
+        url: draggedPhoto.originalUrl,
         originalWidth: draggedPhoto.width,
         originalHeight: draggedPhoto.height,
         zoom: 100,
@@ -452,7 +472,7 @@ export default function DiagramadorWorkspace({ project }: DiagramadorWorkspacePr
           opacity: 1,
           zIndex: index + 1,
           data: {
-            url: photo.url,
+            url: photo.originalUrl,
             originalWidth: photo.width,
             originalHeight: photo.height,
             zoom: 100,
