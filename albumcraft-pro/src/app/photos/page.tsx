@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
 import { Trash2, Search, Image as ImageIcon, Calendar, User, AlertTriangle } from 'lucide-react'
 
 interface Photo {
@@ -223,12 +222,12 @@ export default function PhotosManagementPage() {
                     <span className="truncate">{photo.filename}</span>
                   </div>
                   {photo.project && (
-                    <div className="flex items-center gap-2">
-                      <Badge variant="secondary" className="text-xs">
-                        {photo.project.name}
-                      </Badge>
-                    </div>
-                  )}
+                     <div className="flex items-center gap-2">
+                       <span className="text-xs bg-gray-100 text-gray-800 px-2 py-1 rounded">
+                         {photo.project.name}
+                       </span>
+                     </div>
+                   )}
                 </div>
                 <Button
                   variant="destructive"
