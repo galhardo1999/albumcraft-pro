@@ -1,28 +1,46 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useSession } from 'next-auth/react'
+import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { Trash2, Search, Upload } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
+import { Trash2, Search, Image as ImageIcon, Calendar, User } from 'lucide-react'
+import { toast } from 'sonner'
 import Image from 'next/image'
-import { useProtectedRoute } from '@/hooks/useProtectedRoute'
 
 interface Photo {
   id: string
-  name: string
+  filename: string
+  originalName: string
+  mimeType: string
+  size: number
   url: string
-  width: number
-  height: number
-  fileSize: number
-  s3Key: string | null
-  isS3Stored: boolean
-  createdAt: string
-  projectId: string | null
+  thumbnailUrl?: string
+  mediumUrl?: string
+  uploadedAt: string
+  userId: string
+  projectId?: string
+  project?: {
+    id: string
+    name: string
+  }
 }
 
-export default function PhotosPage() {
-  const { logout } = useProtectedRoute()
+export default function PhotosManagementPage() {
+  const { data: session, status } = useSession()
+  const router = useRouter()
+
+  // Redirect if not authenticated
+  useEffect(() => {
+    if (status === 'loading') return // Still loading
+    if (!session) {
+      router.push('/auth/signin')
+      return
+    }
+  }, [session, status, router])
   const [photos, setPhotos] = useState<Photo[]>([])
   const [filteredPhotos, setFilteredPhotos] = useState<Photo[]>([])
   const [searchTerm, setSearchTerm] = useState('')
