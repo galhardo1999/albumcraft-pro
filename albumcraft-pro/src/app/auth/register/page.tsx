@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Eye, EyeOff } from 'lucide-react'
 
 export default function RegisterPage() {
   const [formData, setFormData] = useState({
@@ -13,6 +14,8 @@ export default function RegisterPage() {
     password: '',
     confirmPassword: ''
   })
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
   const router = useRouter()
@@ -140,34 +143,64 @@ export default function RegisterPage() {
               <label htmlFor="password" className="text-sm font-medium">
                 Senha
               </label>
-              <Input
-                id="password"
-                name="password"
-                type="password"
-                autoComplete="new-password"
-                required
-                value={formData.password}
-                onChange={handleChange}
-                placeholder="Mínimo 8 caracteres"
-                disabled={isLoading}
-              />
+              <div className="relative">
+                <Input
+                  id="password"
+                  name="password"
+                  type={showPassword ? "text" : "password"}
+                  autoComplete="new-password"
+                  required
+                  value={formData.password}
+                  onChange={handleChange}
+                  placeholder="Mínimo 8 caracteres"
+                  disabled={isLoading}
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  className="absolute inset-y-0 right-0 flex items-center pr-3 text-muted-foreground hover:text-foreground transition-colors"
+                  onClick={() => setShowPassword(!showPassword)}
+                  disabled={isLoading}
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </button>
+              </div>
             </div>
 
             <div className="space-y-2">
               <label htmlFor="confirmPassword" className="text-sm font-medium">
                 Confirmar senha
               </label>
-              <Input
-                id="confirmPassword"
-                name="confirmPassword"
-                type="password"
-                autoComplete="new-password"
-                required
-                value={formData.confirmPassword}
-                onChange={handleChange}
-                placeholder="Confirme sua senha"
-                disabled={isLoading}
-              />
+              <div className="relative">
+                <Input
+                  id="confirmPassword"
+                  name="confirmPassword"
+                  type={showConfirmPassword ? "text" : "password"}
+                  autoComplete="new-password"
+                  required
+                  value={formData.confirmPassword}
+                  onChange={handleChange}
+                  placeholder="Confirme sua senha"
+                  disabled={isLoading}
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  className="absolute inset-y-0 right-0 flex items-center pr-3 text-muted-foreground hover:text-foreground transition-colors"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  disabled={isLoading}
+                >
+                  {showConfirmPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </button>
+              </div>
             </div>
 
             <div className="flex items-center space-x-2">
@@ -200,37 +233,7 @@ export default function RegisterPage() {
             </Button>
           </form>
 
-          {/* Divider */}
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t" />
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-background px-2 text-muted-foreground">benefícios inclusos</span>
-            </div>
-          </div>
-
-          {/* Benefits */}
-          <div className="space-y-3">
-            <div className="flex items-center text-sm text-muted-foreground">
-              <svg className="w-4 h-4 text-primary mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-              </svg>
-              Até 3 projetos gratuitos
-            </div>
-            <div className="flex items-center text-sm text-muted-foreground">
-              <svg className="w-4 h-4 text-primary mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-              </svg>
-              500MB de armazenamento
-            </div>
-            <div className="flex items-center text-sm text-muted-foreground">
-              <svg className="w-4 h-4 text-primary mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-              </svg>
-              Templates profissionais
-            </div>
-          </div>
+          
 
           {/* Sign in link */}
           <div className="text-center text-sm">

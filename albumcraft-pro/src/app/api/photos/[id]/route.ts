@@ -113,13 +113,13 @@ export async function DELETE(
 
     console.log(`📸 Foto encontrada:`, {
       id: existingPhoto.id,
-      name: existingPhoto.name,
+      filename: existingPhoto.filename,
       s3Key: existingPhoto.s3Key,
       isS3Stored: existingPhoto.isS3Stored
     })
 
     // ✅ Deletar arquivos do S3 (se existirem)
-    let s3DeletionResult = { deleted: [], errors: [] }
+    let s3DeletionResult: { deleted: string[]; errors: { key: string; error: string }[] } = { deleted: [], errors: [] }
     
     if (existingPhoto.isS3Stored && existingPhoto.s3Key) {
       try {

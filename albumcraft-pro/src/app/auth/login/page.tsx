@@ -5,11 +5,13 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Eye, EyeOff } from 'lucide-react'
 import GoogleLoginButton from '@/components/GoogleLoginButton'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
   const router = useRouter()
@@ -123,17 +125,32 @@ export default function LoginPage() {
               <label htmlFor="password" className="text-sm font-medium">
                 Senha
               </label>
-              <Input
-                id="password"
-                name="password"
-                type="password"
-                autoComplete="current-password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Sua senha"
-                disabled={isLoading}
-              />
+              <div className="relative">
+                <Input
+                  id="password"
+                  name="password"
+                  type={showPassword ? "text" : "password"}
+                  autoComplete="current-password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Sua senha"
+                  disabled={isLoading}
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  className="absolute inset-y-0 right-0 flex items-center pr-3 text-muted-foreground hover:text-foreground transition-colors"
+                  onClick={() => setShowPassword(!showPassword)}
+                  disabled={isLoading}
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </button>
+              </div>
             </div>
 
             <div className="flex items-center justify-between text-sm">

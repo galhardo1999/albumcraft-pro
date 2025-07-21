@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyToken } from '@/lib/auth'
 import { z } from 'zod'
-import { addAlbumCreationJob, isRedisAvailable } from '@/lib/queue'
-import { sendAlbumProgress } from '@/lib/notifications'
-import { PrismaClient } from '@prisma/client'
+import { addAlbumCreationJob } from '@/lib/queue'
+import { sendAlbumProgressSimple } from '@/lib/notifications'
+import { PrismaClient, ProjectStatus } from '@prisma/client'
 
 const prisma = new PrismaClient()
 
@@ -12,7 +12,9 @@ const batchCreateSchema = z.object({
   eventName: z.string().min(1, 'Nome do evento é obrigatório'),
   albums: z.array(z.object({
     albumName: z.string().min(1, 'Nome do álbum é obrigatório'),
-    template: z.string().min(1, 'Template é obrigatório'),
+    template: z.enum(['classic', 'modern', 'artistic', 'minimal'], {
+      message: 'Template deve ser: classic, modern, artistic ou minimal'
+    }),
     files: z.array(z.object({
       name: z.string(),
       size: z.number(),
@@ -23,14 +25,12 @@ const batchCreateSchema = z.object({
   sessionId: z.string().min(1, 'Session ID é obrigatório')
 })
 
-// Mapeamento de templates
-const templateMapping = {
-  'classic-20x20': { template: 'classic' as const, size: 'MEDIUM' as const },
-  'classic-30x20': { template: 'classic' as const, size: 'SIZE_20X30' as const },
-  'modern-20x20': { template: 'modern' as const, size: 'MEDIUM' as const },
-  'modern-30x20': { template: 'modern' as const, size: 'SIZE_20X30' as const },
-  'premium-30x20': { template: 'artistic' as const, size: 'SIZE_20X30' as const },
-  'premium-20x20': { template: 'artistic' as const, size: 'MEDIUM' as const },
+// Mapeamento de templates para tamanhos (se necessário)
+const templateSizeMapping = {
+  'classic': 'MEDIUM' as const,
+  'modern': 'MEDIUM' as const,
+  'artistic': 'SIZE_20X30' as const,
+  'minimal': 'MEDIUM' as const,
 }
 
 export async function POST(request: NextRequest) {
@@ -51,28 +51,25 @@ export async function POST(request: NextRequest) {
     const validatedData = batchCreateSchema.parse(body)
 
     const { eventName, albums, sessionId } = validatedData
-    const userId = decoded.userId
+    const userId = (decoded as any).userId
 
-    // 3. Verificar se Redis/Queue está disponível
-    const useQueue = await isRedisAvailable()
+    // 3. Adicionar à fila de processamento
+    console.log('🚀 Using queue system for batch processing')
     
-    if (useQueue) {
-      console.log('🚀 Using queue system for batch processing')
+    // Processar com sistema de filas
+    const jobPromises = albums.map(async (album, index) => {
+      const { albumName, template, files } = album
       
-      // Processar com sistema de filas
-      const jobPromises = albums.map(async (album, index) => {
-        const { albumName, template, files } = album
-        
-        // Converter arquivos de Base64 para Buffer
-        const processedFiles = files.map(file => ({
-          ...file,
-          buffer: Buffer.from(file.buffer, 'base64')
-        }))
+      // Converter arquivos de Base64 para Buffer
+      const processedFiles = files.map(file => ({
+        ...file,
+        buffer: Buffer.from(file.buffer, 'base64')
+      }))
 
-        // Adicionar job à fila com prioridade baseada na ordem
-        const priority = albums.length - index // Primeiro álbum tem maior prioridade
-        
-        const job = await addAlbumCreationJob({
+      // Adicionar job à fila com prioridade baseada na ordem
+      const priority = albums.length - index // Primeiro álbum tem maior prioridade
+      
+      const job = await addAlbumCreationJob({
           userId,
           eventName,
           albumName,
@@ -82,7 +79,7 @@ export async function POST(request: NextRequest) {
         }, priority)
 
         if (job) {
-          await sendAlbumProgress(
+          await sendAlbumProgressSimple(
             sessionId,
             albumName,
             0,
@@ -102,75 +99,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         success: true,
         message: `${albums.length} álbuns adicionados à fila de processamento`,
-        useQueue: true,
         results,
         sessionId
       })
-
-    } else {
-      console.log('⚠️ Queue not available, falling back to synchronous processing')
-      
-      // Fallback para processamento síncrono (código original)
-      const results = []
-      
-      for (const album of albums) {
-        try {
-          const { albumName, template } = album
-          
-          await sendAlbumProgress(sessionId, albumName, 10, 'Criando álbum...')
-          
-          // Criar projeto
-          const templateConfig = templateMapping[template as keyof typeof templateMapping] || {
-            template: 'classic' as const,
-            size: 'MEDIUM' as const
-          }
-
-          const project = await prisma.project.create({
-            data: {
-              name: albumName,
-              eventName,
-              template: templateConfig.template,
-              size: templateConfig.size,
-              userId,
-              status: 'ACTIVE',
-              createdAt: new Date(),
-              updatedAt: new Date(),
-            },
-          })
-
-          await sendAlbumProgress(sessionId, albumName, 100, 'Álbum criado com sucesso!')
-          
-          results.push({
-            albumName,
-            projectId: project.id,
-            status: 'completed'
-          })
-
-        } catch (error) {
-          console.error(`Error creating album ${album.albumName}:`, error)
-          results.push({
-            albumName: album.albumName,
-            status: 'failed',
-            error: error instanceof Error ? error.message : 'Erro desconhecido'
-          })
-        }
-      }
-
-      return NextResponse.json({
-        success: true,
-        message: 'Álbuns processados sincronamente',
-        useQueue: false,
-        results,
-        sessionId
-      })
-    }
 
   } catch (error) {
     console.error('Batch creation error:', error)
     
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: 'Dados inválidos', details: error.errors },
+        { error: 'Dados inválidos', details: error.issues },
         { status: 400 }
       )
     }

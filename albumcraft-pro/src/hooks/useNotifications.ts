@@ -3,7 +3,7 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 export interface NotificationData {
   type: 'album_progress' | 'album_completed' | 'album_failed' | 'queue_status' | 'connected'
   sessionId: string
-  data: any
+  data: Record<string, unknown>
   timestamp: number
   message?: string
 }
@@ -71,7 +71,7 @@ export const useNotifications = (sessionId: string): UseNotificationsReturn => {
 
           // Atualizar estatísticas da fila
           if (notification.type === 'queue_status') {
-            setQueueStats(notification.data)
+            setQueueStats(notification.data as unknown as QueueStats)
           }
 
         } catch (error) {
@@ -195,18 +195,21 @@ export const useAlbumProgress = (sessionId: string) => {
   const albumProgress = notifications
     .filter(n => n.type === 'album_progress')
     .reduce((acc, notification) => {
-      const { albumName } = notification.data
+      const albumName = notification.data.albumName as string
       acc[albumName] = notification.data
       return acc
-    }, {} as Record<string, any>)
+    }, {} as Record<string, Record<string, unknown>>)
   
   const completedAlbums = notifications
     .filter(n => n.type === 'album_completed')
-    .map(n => n.data.albumName)
+    .map(n => n.data.albumName as string)
   
   const failedAlbums = notifications
     .filter(n => n.type === 'album_failed')
-    .map(n => ({ name: n.data.albumName, error: n.data.error }))
+    .map(n => ({ 
+      name: n.data.albumName as string, 
+      error: n.data.error as string 
+    }))
   
   return {
     albumProgress,

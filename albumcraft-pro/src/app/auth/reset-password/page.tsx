@@ -5,10 +5,13 @@ import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Eye, EyeOff } from 'lucide-react'
 
 function ResetPasswordForm() {
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
@@ -227,34 +230,64 @@ function ResetPasswordForm() {
               <label htmlFor="password" className="text-sm font-medium">
                 Nova senha
               </label>
-              <Input
-                id="password"
-                name="password"
-                type="password"
-                autoComplete="new-password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Mínimo 8 caracteres"
-                disabled={isLoading}
-              />
+              <div className="relative">
+                <Input
+                  id="password"
+                  name="password"
+                  type={showPassword ? "text" : "password"}
+                  autoComplete="new-password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Mínimo 8 caracteres"
+                  disabled={isLoading}
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  className="absolute inset-y-0 right-0 flex items-center pr-3 text-muted-foreground hover:text-foreground transition-colors"
+                  onClick={() => setShowPassword(!showPassword)}
+                  disabled={isLoading}
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </button>
+              </div>
             </div>
 
             <div className="space-y-2">
               <label htmlFor="confirmPassword" className="text-sm font-medium">
                 Confirmar nova senha
               </label>
-              <Input
-                id="confirmPassword"
-                name="confirmPassword"
-                type="password"
-                autoComplete="new-password"
-                required
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="Confirme sua nova senha"
-                disabled={isLoading}
-              />
+              <div className="relative">
+                <Input
+                  id="confirmPassword"
+                  name="confirmPassword"
+                  type={showConfirmPassword ? "text" : "password"}
+                  autoComplete="new-password"
+                  required
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Confirme sua nova senha"
+                  disabled={isLoading}
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  className="absolute inset-y-0 right-0 flex items-center pr-3 text-muted-foreground hover:text-foreground transition-colors"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  disabled={isLoading}
+                >
+                  {showConfirmPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </button>
+              </div>
             </div>
 
             <Button

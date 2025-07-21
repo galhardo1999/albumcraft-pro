@@ -1,16 +1,16 @@
-import { NextRequest } from 'next/server'
-import { notificationManager } from '@/lib/notifications'
+import { NextRequest, NextResponse } from 'next/server'
 import { getQueueStats } from '@/lib/queue'
 
+// GET - Server-Sent Events para notificações em tempo real
 export async function GET(request: NextRequest) {
-  const searchParams = request.nextUrl.searchParams
+  const { searchParams } = new URL(request.url)
   const sessionId = searchParams.get('sessionId')
 
   if (!sessionId) {
-    return new Response('Session ID required', { status: 400 })
+    return NextResponse.json({ error: 'Session ID required' }, { status: 400 })
   }
 
-  // Configurar headers para Server-Sent Events
+  // Configurar headers para SSE
   const headers = new Headers({
     'Content-Type': 'text/event-stream',
     'Cache-Control': 'no-cache',
@@ -22,88 +22,87 @@ export async function GET(request: NextRequest) {
   // Criar stream para SSE
   const stream = new ReadableStream({
     start(controller) {
-      // Função para enviar dados
-      const send = (data: string) => {
-        controller.enqueue(new TextEncoder().encode(data))
-      }
-
-      // Enviar evento inicial de conexão
-      send(`data: ${JSON.stringify({
+      // Enviar evento inicial
+      const initialData = {
         type: 'connected',
         sessionId,
-        timestamp: Date.now(),
+        timestamp: new Date().toISOString(),
         message: 'Conectado ao sistema de notificações'
-      })}\n\n`)
+      }
 
+      controller.enqueue(`data: ${JSON.stringify(initialData)}\n\n`)
 
-      // Enviar notificações armazenadas (se houver)
-      notificationManager.getStoredNotifications(sessionId).then(notifications => {
-        notifications.forEach(notification => {
-          send(`data: ${JSON.stringify(notification)}\n\n`)
-        })
-      })
-
-      // Enviar status da fila periodicamente
-      const statusInterval = setInterval(async () => {
+      // Enviar estatísticas da fila periodicamente
+      const interval = setInterval(async () => {
         try {
           const stats = await getQueueStats()
-          if (stats) {
-            send(`data: ${JSON.stringify({
-              type: 'queue_status',
-              sessionId,
-              data: stats,
-              timestamp: Date.now()
-            })}\n\n`)
+          const statsData = {
+            type: 'queue_stats',
+            sessionId,
+            timestamp: new Date().toISOString(),
+            data: stats
           }
-        } catch (error) {
-          console.error('Error sending queue status:', error)
-        }
-      }, 10000) // A cada 10 segundos
 
-      // Cleanup quando conexão for fechada
-      request.signal?.addEventListener('abort', () => {
-        clearInterval(statusInterval)
-        notificationManager.removeConnection(sessionId)
+          controller.enqueue(`data: ${JSON.stringify(statsData)}\n\n`)
+        } catch (error) {
+          console.error('❌ Error sending queue stats:', error)
+        }
+      }, 5000) // A cada 5 segundos
+
+      // Cleanup quando a conexão for fechada
+      request.signal.addEventListener('abort', () => {
+        clearInterval(interval)
         controller.close()
       })
-    },
 
-    cancel() {
-      notificationManager.removeConnection(sessionId)
-    }
+      // Enviar heartbeat para manter conexão viva
+      const heartbeat = setInterval(() => {
+        try {
+          controller.enqueue(`data: ${JSON.stringify({ type: 'heartbeat', timestamp: new Date().toISOString() })}\n\n`)
+        } catch (error) {
+          clearInterval(heartbeat)
+          clearInterval(interval)
+        }
+      }, 30000) // A cada 30 segundos
+    },
   })
 
-  return new Response(stream, { headers })
+  return new NextResponse(stream, { headers })
 }
 
-// Endpoint para obter estatísticas
+// POST - Enviar notificação manual
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { action, sessionId } = body
+    const { sessionId, type, message, data } = body
 
-    switch (action) {
-      case 'get_stats':
-        const queueStats = await getQueueStats()
-        const connectionStats = notificationManager.getConnectionStats()
-        
-        return Response.json({
-          queue: queueStats,
-          connections: connectionStats
-        })
-
-      case 'clear_notifications':
-        if (sessionId) {
-          await notificationManager.clearStoredNotifications(sessionId)
-          return Response.json({ success: true })
-        }
-        return Response.json({ error: 'Session ID required' }, { status: 400 })
-
-      default:
-        return Response.json({ error: 'Invalid action' }, { status: 400 })
+    if (!sessionId || !type || !message) {
+      return NextResponse.json(
+        { error: 'sessionId, type e message são obrigatórios' },
+        { status: 400 }
+      )
     }
+
+    // Notificação manual registrada no log
+    // Por enquanto, apenas log
+    console.log('📢 Notification sent:', {
+      sessionId,
+      type,
+      message,
+      data,
+      timestamp: new Date().toISOString()
+    })
+
+    return NextResponse.json({
+      success: true,
+      message: 'Notificação enviada com sucesso'
+    })
+
   } catch (error) {
-    console.error('SSE API error:', error)
-    return Response.json({ error: 'Internal server error' }, { status: 500 })
+    console.error('❌ Error sending notification:', error)
+    return NextResponse.json(
+      { error: 'Erro interno do servidor' },
+      { status: 500 }
+    )
   }
 }

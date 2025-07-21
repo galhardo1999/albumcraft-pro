@@ -236,12 +236,22 @@ export default function DiagramadorWorkspace({ project }: DiagramadorWorkspacePr
           // Se não há fotos reais, usar fotos de exemplo apenas para demonstração
           if (data.data.length === 0) {
             console.log('📷 Nenhuma foto real encontrada, usando fotos de exemplo para demonstração')
-            setPhotos(samplePhotos)
+            const mappedSamplePhotos = samplePhotos.map(photo => ({
+              ...photo,
+              originalUrl: photo.url,
+              filename: photo.name
+            }))
+            setPhotos(mappedSamplePhotos)
           }
         } else {
           console.log('📷 Estrutura de dados inválida, usando fotos de exemplo')
           console.log('Dados recebidos:', data)
-          setPhotos(samplePhotos)
+          const mappedSamplePhotos = samplePhotos.map(photo => ({
+            ...photo,
+            originalUrl: photo.url,
+            filename: photo.name
+          }))
+          setPhotos(mappedSamplePhotos)
         }
       } else {
         const errorData = await response.json().catch(() => ({ error: 'Erro desconhecido' }))
@@ -250,7 +260,12 @@ export default function DiagramadorWorkspace({ project }: DiagramadorWorkspacePr
         // Só usar fotos de exemplo se for erro de autorização ou não encontrado
         if (response.status === 401 || response.status === 404) {
           console.log('📷 Usando fotos de exemplo devido ao erro de autorização/não encontrado')
-          setPhotos(samplePhotos)
+          const mappedSamplePhotos = samplePhotos.map(photo => ({
+            ...photo,
+            originalUrl: photo.url,
+            filename: photo.name
+          }))
+          setPhotos(mappedSamplePhotos)
         } else {
           // Para outros erros, deixar vazio para mostrar o problema real
           setPhotos([])

@@ -34,6 +34,32 @@ export default function CreateBatchAlbumsPage() {
   const [createdAlbums, setCreatedAlbums] = useState<string[]>([])
   const [errors, setErrors] = useState<string[]>([])
 
+  // Função para obter estrutura de pastas
+  const getFolderStructure = (): Map<string, File[]> => {
+    const folderStructure = new Map<string, File[]>()
+    
+    if (!folders) return folderStructure
+    
+    for (let i = 0; i < folders.length; i++) {
+      const file = folders[i]
+      const pathParts = file.webkitRelativePath.split('/')
+      
+      if (pathParts.length >= 2 && file.type.startsWith('image/')) {
+        const folderName = pathParts[1] // Segunda parte é o nome da subpasta
+        
+        if (!folderStructure.has(folderName)) {
+          folderStructure.set(folderName, [])
+        }
+        folderStructure.get(folderName)?.push(file)
+      }
+    }
+    
+    return folderStructure
+  }
+
+  // Obter estrutura de pastas
+  const folderStructure = getFolderStructure()
+
   // Hooks para notificações em tempo real
   const { 
     notifications, 
@@ -58,48 +84,7 @@ export default function CreateBatchAlbumsPage() {
     if (files) {
       setFolders(files)
       console.log('Arquivos selecionados:', files.length)
-      
-      // Analisar estrutura de pastas
-      const folderStructure = new Map<string, File[]>()
-      
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i]
-        const pathParts = file.webkitRelativePath.split('/')
-        
-        if (pathParts.length >= 2) {
-          const folderName = pathParts[1] // Segunda parte é o nome da subpasta
-          
-          if (!folderStructure.has(folderName)) {
-            folderStructure.set(folderName, [])
-          }
-          folderStructure.get(folderName)?.push(file)
-        }
-      }
-      
-      console.log('Estrutura de pastas detectada:', folderStructure)
     }
-  }
-
-  const getFolderStructure = (): Map<string, File[]> => {
-    const folderStructure = new Map<string, File[]>()
-    
-    if (!folders) return folderStructure
-    
-    for (let i = 0; i < folders.length; i++) {
-      const file = folders[i]
-      const pathParts = file.webkitRelativePath.split('/')
-      
-      if (pathParts.length >= 2 && file.type.startsWith('image/')) {
-        const folderName = pathParts[1] // Segunda parte é o nome da subpasta
-        
-        if (!folderStructure.has(folderName)) {
-          folderStructure.set(folderName, [])
-        }
-        folderStructure.get(folderName)?.push(file)
-      }
-    }
-    
-    return folderStructure
   }
 
   const handlePreview = () => {
@@ -195,8 +180,6 @@ export default function CreateBatchAlbumsPage() {
       setIsUploading(false)
     }
   }
-
-  const folderStructure = getFolderStructure()
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-50 p-4">
@@ -309,15 +292,15 @@ export default function CreateBatchAlbumsPage() {
                     <div key={albumName} className="space-y-2">
                       <div className="flex justify-between text-sm">
                         <span className="font-medium">{albumName}</span>
-                        <span className="text-gray-600">{progress.current}/{progress.total} fotos</span>
+                        <span className="text-gray-600">{(progress.current as number)}/{(progress.total as number)} fotos</span>
                       </div>
                       <div className="w-full bg-gray-200 rounded-full h-2">
                         <div 
                           className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                          style={{ width: `${(progress.current / progress.total) * 100}%` }}
+                          style={{ width: `${((progress.current as number) / (progress.total as number)) * 100}%` }}
                         ></div>
                       </div>
-                      {progress.status && (
+                      {(progress.status as string) && (
                         <div className={`text-xs ${
                           progress.status === 'completed' ? 'text-green-600' :
                           progress.status === 'failed' ? 'text-red-600' :
@@ -448,7 +431,7 @@ export default function CreateBatchAlbumsPage() {
                               <CheckCircle2 className="h-5 w-5 text-green-500" />
                             ) : (
                               <div className="text-sm text-gray-500">
-                                {albumProgress[folderName]?.progress || 0}%
+                                {String(albumProgress[folderName]?.progress || 0)}%
                               </div>
                             )}
                           </div>

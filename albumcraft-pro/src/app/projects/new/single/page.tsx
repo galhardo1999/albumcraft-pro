@@ -488,7 +488,7 @@ export default function SingleAlbumPage() {
                       <button
                         key={category.key}
                         type="button"
-                        onClick={() => setSelectedCategory(category.key as any)}
+                        onClick={() => setSelectedCategory(category.key as 'square' | 'landscape' | 'portrait' | 'popular')}
                         className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
                           selectedCategory === category.key
                             ? 'bg-primary text-primary-foreground'
