@@ -80,15 +80,17 @@ export async function GET(request: NextRequest) {
     const token = await new SignJWT({ 
       userId: user.id,
       email: user.email,
-      name: user.name
+      name: user.name,
+      isAdmin: user.isAdmin
     })
       .setProtectedHeader({ alg: 'HS256' })
       .setIssuedAt()
       .setExpirationTime('7d')
       .sign(secret)
 
-    // Criar resposta de redirecionamento para o dashboard
-    const response = NextResponse.redirect(`${process.env.NEXTAUTH_URL}/dashboard`)
+    // Redirecionar baseado no tipo de usuário
+    const redirectUrl = user.isAdmin ? '/admin' : '/dashboard'
+    const response = NextResponse.redirect(`${process.env.NEXTAUTH_URL}${redirectUrl}`)
 
     // Definir cookie de autenticação
     response.cookies.set('auth-token', token, {

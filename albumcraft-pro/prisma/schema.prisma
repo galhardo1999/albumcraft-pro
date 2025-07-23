@@ -66,6 +66,7 @@ model User {
   name                  String
   avatarUrl             String?   @map("avatar_url")
   plan                  UserPlan  @default(FREE)
+  isAdmin               Boolean   @map("is_admin") @default(false)
   createdAt             DateTime  @default(now()) @map("created_at")
   updatedAt             DateTime  @updatedAt @map("updated_at")
   lastLogin             DateTime? @map("last_login")

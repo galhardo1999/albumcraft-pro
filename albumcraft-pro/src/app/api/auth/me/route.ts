@@ -28,6 +28,7 @@ export async function GET(request: NextRequest) {
         name: true,
         avatarUrl: true,
         plan: true,
+        isAdmin: true,
         createdAt: true,
         lastLogin: true
       }
@@ -56,6 +57,7 @@ export async function GET(request: NextRequest) {
         name: true,
         avatarUrl: true,
         plan: true,
+        isAdmin: true,
         createdAt: true,
         lastLogin: true
       }

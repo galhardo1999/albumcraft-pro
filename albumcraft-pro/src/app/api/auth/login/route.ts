@@ -54,7 +54,8 @@ export async function POST(request: NextRequest) {
     const token = await new SignJWT({ 
       userId: user.id, 
       email: user.email,
-      plan: user.plan 
+      plan: user.plan,
+      isAdmin: user.isAdmin
     })
       .setProtectedHeader({ alg: 'HS256' })
       .setIssuedAt()
@@ -69,7 +70,8 @@ export async function POST(request: NextRequest) {
           email: user.email,
           name: user.name,
           plan: user.plan,
-          avatarUrl: user.avatarUrl
+          avatarUrl: user.avatarUrl,
+          isAdmin: user.isAdmin
         },
         token
       }

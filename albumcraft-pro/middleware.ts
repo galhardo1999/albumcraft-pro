@@ -2,31 +2,36 @@ import { NextRequest, NextResponse } from 'next/server'
 import { jwtVerify } from 'jose'
 
 // Rotas que requerem autenticação
-const protectedRoutes = ['/dashboard', '/projects', '/photos', '/settings', '/profile', '/plans']
+const protectedRoutes = ['/dashboard', '/projects', '/photos', '/settings', '/profile', '/plans', '/admin']
 
 // Rotas de autenticação (redirecionam se já logado)
 const authRoutes = ['/auth/login', '/auth/register', '/auth/forgot-password']
 
-async function verifyToken(token: string): Promise<boolean> {
+// Rotas que requerem privilégios de admin
+const adminRoutes = ['/admin']
+
+async function verifyToken(token: string): Promise<{ isValid: boolean; payload?: any }> {
   try {
     const jwtSecret = process.env.NEXTAUTH_SECRET
     
     if (!jwtSecret) {
       console.error('NEXTAUTH_SECRET não configurado')
-      return false
+      return { isValid: false }
     }
     
     const secret = new TextEncoder().encode(jwtSecret)
     const { payload } = await jwtVerify(token, secret)
     
     // Verificar se o token tem userId válido e não expirou
-    return !!(payload.userId && 
+    const isValid = !!(payload.userId && 
              typeof payload.userId === 'string' && 
              payload.exp && 
              payload.exp * 1000 > Date.now())
+             
+    return { isValid, payload: isValid ? payload : undefined }
   } catch (error) {
     // Token inválido ou expirado
-    return false
+    return { isValid: false }
   }
 }
 
@@ -36,6 +41,7 @@ export async function middleware(request: NextRequest) {
   // Verificar se é uma rota protegida
   const isProtectedRoute = protectedRoutes.some(route => pathname.startsWith(route))
   const isAuthRoute = authRoutes.some(route => pathname.startsWith(route))
+  const isAdminRoute = adminRoutes.some(route => pathname.startsWith(route))
   
   // Se não é uma rota que precisa de verificação, continuar
   if (!isProtectedRoute && !isAuthRoute) {
@@ -46,7 +52,8 @@ export async function middleware(request: NextRequest) {
   const token = request.cookies.get('auth-token')?.value
   
   // Verificar se o token é válido
-  const isAuthenticated = token ? await verifyToken(token) : false
+  const tokenResult = token ? await verifyToken(token) : { isValid: false }
+  const isAuthenticated = tokenResult.isValid
   
   // Se é uma rota protegida e não está autenticado
   if (isProtectedRoute && !isAuthenticated) {
@@ -67,10 +74,23 @@ export async function middleware(request: NextRequest) {
     return response
   }
   
+  // Se é uma rota de admin, verificar se o usuário é admin
+  if (isAdminRoute && isAuthenticated && tokenResult.payload) {
+    const isAdmin = tokenResult.payload.isAdmin === true
+    
+    if (!isAdmin) {
+      // Redirecionar para dashboard se não for admin
+      const dashboardUrl = new URL('/dashboard', request.url)
+      return NextResponse.redirect(dashboardUrl)
+    }
+  }
+  
   // Se é uma rota de autenticação e está autenticado
   if (isAuthRoute && isAuthenticated) {
-    const dashboardUrl = new URL('/dashboard', request.url)
-    return NextResponse.redirect(dashboardUrl)
+    // Verificar se é admin para redirecionar adequadamente
+    const isAdmin = tokenResult.payload?.isAdmin === true
+    const redirectUrl = new URL(isAdmin ? '/admin' : '/dashboard', request.url)
+    return NextResponse.redirect(redirectUrl)
   }
   
   return NextResponse.next()

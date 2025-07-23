@@ -70,8 +70,12 @@ export default function LoginPage() {
         throw new Error(data.error || 'Erro ao fazer login')
       }
 
-      // Redirect to dashboard
-      router.push('/dashboard')
+      // Verificar se o usuário é admin e redirecionar adequadamente
+      if (data.data?.user?.isAdmin) {
+        router.push('/admin')
+      } else {
+        router.push('/dashboard')
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro inesperado')
     } finally {

@@ -2,10 +2,8 @@
 
 import React, { useState, useRef, useCallback, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-//import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
-import { Trash2, Download, RotateCcw, RotateCw, ZoomIn, ZoomOut, Move, Square } from 'lucide-react'
+import { Download, ZoomIn, ZoomOut, Square } from 'lucide-react'
 import PhotoGallery from './PhotoGallery'
 import DiagramCanvas from './DiagramCanvas'
 import ToolsPanel from './ToolsPanel'

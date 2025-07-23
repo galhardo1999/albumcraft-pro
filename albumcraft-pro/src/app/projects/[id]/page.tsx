@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useState, useEffect, useCallback, use } from 'react'
+import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import DiagramadorWorkspace from '@/components/diagramador/DiagramadorWorkspace'
 
@@ -20,8 +20,8 @@ interface Project {
   }
 }
 
-export default function ProjectDiagramadorPage() {
-  const params = useParams()
+export default function ProjectDiagramadorPage({ params }: { params: Promise<{ id: string }> }) {
+  const resolvedParams = use(params)
   const router = useRouter()
   const [project, setProject] = useState<Project | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -30,7 +30,7 @@ export default function ProjectDiagramadorPage() {
   const fetchProject = useCallback(async () => {
     try {
       setIsLoading(true)
-      const response = await fetch(`/api/projects/${params.id}`)
+      const response = await fetch(`/api/projects/${resolvedParams.id}`)
       
       if (response.ok) {
         const data = await response.json()
@@ -44,13 +44,13 @@ export default function ProjectDiagramadorPage() {
     } finally {
       setIsLoading(false)
     }
-  }, [params.id])
+  }, [resolvedParams.id])
 
   useEffect(() => {
-    if (params.id) {
+    if (resolvedParams.id) {
       fetchProject()
     }
-  }, [params.id, fetchProject])
+  }, [resolvedParams.id, fetchProject])
 
   // Prevenir scroll na página do diagramador
   useEffect(() => {
