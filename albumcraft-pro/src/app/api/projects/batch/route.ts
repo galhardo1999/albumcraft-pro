@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { verifyToken } from '@/lib/auth'
+import { withAuth } from '@/lib/auth-middleware'
 import { z } from 'zod'
-import { addAlbumCreationJob } from '@/lib/queue'
-import { sendAlbumProgressSimple } from '@/lib/notifications'
+import { addAlbumCreationJob, processAlbumSynchronously } from '@/lib/queue'
 import { PrismaClient, ProjectStatus } from '@prisma/client'
 
 const prisma = new PrismaClient()
@@ -12,53 +11,31 @@ const batchCreateSchema = z.object({
   eventName: z.string().min(1, 'Nome do evento é obrigatório'),
   albums: z.array(z.object({
     albumName: z.string().min(1, 'Nome do álbum é obrigatório'),
-    template: z.enum(['classic', 'modern', 'artistic', 'minimal'], {
-      message: 'Template deve ser: classic, modern, artistic ou minimal'
-    }),
     files: z.array(z.object({
       name: z.string(),
       size: z.number(),
       type: z.string(),
       buffer: z.string() // Base64 encoded
-    }))
+    })).min(1, 'Pelo menos uma foto é obrigatória')
   })),
   sessionId: z.string().min(1, 'Session ID é obrigatório')
 })
 
-// Mapeamento de templates para tamanhos (se necessário)
-const templateSizeMapping = {
-  'classic': 'MEDIUM' as const,
-  'modern': 'MEDIUM' as const,
-  'artistic': 'SIZE_20X30' as const,
-  'minimal': 'MEDIUM' as const,
-}
-
-export async function POST(request: NextRequest) {
+export const POST = withAuth(async (request: NextRequest, user) => {
   try {
-    // 1. Verificar autenticação
-    const token = request.headers.get('authorization')?.replace('Bearer ', '')
-    if (!token) {
-      return NextResponse.json({ error: 'Token de acesso necessário' }, { status: 401 })
-    }
-
-    const decoded = await verifyToken(token)
-    if (!decoded) {
-      return NextResponse.json({ error: 'Token inválido' }, { status: 401 })
-    }
-
-    // 2. Validar dados
+    // 1. Validar dados
     const body = await request.json()
     const validatedData = batchCreateSchema.parse(body)
 
     const { eventName, albums, sessionId } = validatedData
-    const userId = (decoded as any).userId
+    const userId = user.userId
 
-    // 3. Adicionar à fila de processamento
+    // 2. Adicionar à fila de processamento
     console.log('🚀 Using queue system for batch processing')
     
     // Processar com sistema de filas
     const jobPromises = albums.map(async (album, index) => {
-      const { albumName, template, files } = album
+      const { albumName, files } = album
       
       // Converter arquivos de Base64 para Buffer
       const processedFiles = files.map(file => ({
@@ -73,19 +50,9 @@ export async function POST(request: NextRequest) {
           userId,
           eventName,
           albumName,
-          template,
           files: processedFiles,
           sessionId
         }, priority)
-
-        if (job) {
-          await sendAlbumProgressSimple(
-            sessionId,
-            albumName,
-            0,
-            `Álbum adicionado à fila de processamento (posição: ${index + 1})`
-          )
-        }
 
         return {
           albumName,
@@ -100,7 +67,8 @@ export async function POST(request: NextRequest) {
         success: true,
         message: `${albums.length} álbuns adicionados à fila de processamento`,
         results,
-        sessionId
+        sessionId,
+        useQueue: true
       })
 
   } catch (error) {
@@ -118,4 +86,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     )
   }
-}
+})

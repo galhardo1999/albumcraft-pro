@@ -41,7 +41,8 @@ export default function ProjectsPage() {
   const fetchProjects = useCallback(async () => {
     try {
       setIsLoading(true);
-      const response = await fetch('/api/projects');
+      // Buscar todos os projetos sem limitação de paginação
+      const response = await fetch('/api/projects?limit=1000');
       if (response.ok) {
         const data = await response.json();
         setProjects(data.data || []);

@@ -272,8 +272,8 @@ export default function CreateProjectModal({ isOpen, onClose, onProjectCreated }
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
-    if (!formData.userId || !formData.name.trim()) {
-      setError('Usuário e nome do projeto são obrigatórios')
+    if (!formData.userId || !formData.name) {
+      setError('Preencha todos os campos obrigatórios')
       return
     }
 
@@ -281,108 +281,31 @@ export default function CreateProjectModal({ isOpen, onClose, onProjectCreated }
     setError('')
 
     try {
-      // 1. Criar o projeto
+      // Criar projeto
       const response = await fetch('/api/admin/projects', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        credentials: 'include',
-        body: JSON.stringify({
-          userId: formData.userId,
-          name: formData.name.trim(),
-          albumSize: formData.albumSize,
-          status: formData.status,
-          creationType: formData.creationType
-        })
+        body: JSON.stringify(formData),
       })
 
       if (!response.ok) {
         const errorData = await response.json()
-        setError(errorData.message || 'Erro ao criar projeto')
-        return
+        throw new Error(errorData.error || 'Erro ao criar projeto')
       }
 
-      const data = await response.json()
-      const projectId = data.project.id
-
-      // 2. Fazer upload das fotos temporárias e associar fotos existentes ao projeto
+      const result = await response.json()
+      
+      // Se há fotos para fazer upload
       if (photos.length > 0) {
-        try {
-          const uploadPromises: Promise<Response>[] = []
-
-          for (const photo of photos) {
-            if ('isTemp' in photo && photo.isTemp) {
-              // É uma foto temporária - fazer upload
-              const formDataUpload = new FormData()
-              formDataUpload.append('files', photo.file)
-              formDataUpload.append('projectId', projectId)
-              formDataUpload.append('userId', formData.userId) // Adicionar userId para upload admin
-
-              const uploadPromise = fetch('/api/admin/photos', {
-                method: 'POST',
-                body: formDataUpload,
-                credentials: 'include'
-              })
-
-              uploadPromises.push(uploadPromise)
-            } else {
-              // É uma foto existente - apenas associar ao projeto
-              const updatePromise = fetch(`/api/admin/photos/${photo.id}`, {
-                method: 'PATCH',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-                credentials: 'include',
-                body: JSON.stringify({
-                  projectId: projectId
-                })
-              })
-
-              uploadPromises.push(updatePromise)
-            }
-          }
-
-          // Executar todos os uploads/updates em paralelo
-          const results = await Promise.allSettled(uploadPromises)
-          
-          // Verificar resultados e capturar erros
-          const errors: string[] = []
-          for (let i = 0; i < results.length; i++) {
-            const result = results[i]
-            if (result.status === 'rejected') {
-              console.error(`Erro no upload ${i}:`, result.reason)
-              errors.push(`Erro no upload da foto ${i + 1}`)
-            } else {
-              // Verificar se a resposta foi bem-sucedida
-              const response = result.value
-              if (!response.ok) {
-                const errorData = await response.json().catch(() => ({ error: 'Erro desconhecido' }))
-                console.error(`Erro HTTP no upload ${i}:`, response.status, errorData)
-                errors.push(`Erro HTTP ${response.status} na foto ${i + 1}: ${errorData.error || 'Erro desconhecido'}`)
-              }
-            }
-          }
-          
-          if (errors.length > 0) {
-            console.error('Erros encontrados nos uploads:', errors)
-            setError(`Projeto criado, mas houve erros: ${errors.join(', ')}`)
-          }
-
-          // Limpar URLs temporárias para evitar memory leaks
-          photos.forEach(photo => {
-            if ('isTemp' in photo && photo.isTemp) {
-              URL.revokeObjectURL(photo.url)
-            }
-          })
-
-        } catch (photoError) {
-          console.error('Erro ao processar fotos:', photoError)
-          setError('Projeto criado, mas houve erro ao processar algumas fotos.')
-        }
+        await uploadPhotos(result.project.id)
       }
 
-      // 3. Resetar formulário e fechar modal
+      onProjectCreated()
+      onClose()
+      
+      // Reset form
       setFormData({
         userId: '',
         name: '',
@@ -391,15 +314,10 @@ export default function CreateProjectModal({ isOpen, onClose, onProjectCreated }
         creationType: 'SINGLE'
       })
       setPhotos([])
-      setExistingPhotos([])
       setSelectedExistingPhotos(new Set())
-      setShowExistingPhotos(false)
-      onProjectCreated()
-      onClose()
       
     } catch (error) {
-      console.error('Error creating project:', error)
-      setError('Erro ao criar projeto. Tente novamente.')
+      setError(error instanceof Error ? error.message : 'Erro desconhecido')
     } finally {
       setIsLoading(false)
     }

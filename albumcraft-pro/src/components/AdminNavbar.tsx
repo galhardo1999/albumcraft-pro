@@ -42,28 +42,24 @@ export function AdminNavbar({ activeTab = 'overview', onTabChange }: AdminSideba
       id: 'users',
       label: 'Usuários',
       icon: Users,
-      href: '/admin'
+      href: '/admin/usuarios'
     },
     {
       id: 'projects',
       label: 'Projetos',
       icon: FolderOpen,
-      href: '/admin'
+      href: '/admin/projetos'
     },
     {
       id: 'reports',
       label: 'Relatórios',
       icon: BarChart3,
-      href: '/admin'
+      href: '/admin/relatorios'
     }
   ];
 
   const handleNavClick = (item: typeof navigationItems[0]) => {
-    if (item.href === '/admin' && onTabChange) {
-      onTabChange(item.id);
-    } else {
-      router.push(item.href);
-    }
+    router.push(item.href);
     setIsMobileMenuOpen(false);
   };
 

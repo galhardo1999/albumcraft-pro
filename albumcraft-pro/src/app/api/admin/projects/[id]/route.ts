@@ -83,7 +83,7 @@ export async function PUT(
 
   try {
     const body = await request.json();
-    const { name, description, status, albumSize, template } = body;
+    const { name, description, status, albumSize } = body;
 
     const updatedProject = await prisma.project.update({
       where: { id: params.id },
@@ -91,8 +91,7 @@ export async function PUT(
         ...(name && { name }),
         ...(description !== undefined && { description }),
         ...(status && { status }),
-        ...(albumSize && { albumSize }),
-        ...(template && { template })
+        ...(albumSize && { albumSize })
       },
       include: {
         user: {

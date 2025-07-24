@@ -5,24 +5,21 @@ import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Upload, FolderOpen, AlertCircle, CheckCircle2 } from 'lucide-react'
 import { motion } from 'framer-motion'
-import { useNotifications, useAlbumProgress } from '@/hooks/useNotifications'
-import { ALBUM_TEMPLATES, AlbumTemplate } from '@/lib/album-sizes'
+
+
 
 export default function CreateBatchAlbumsPage() {
   const router = useRouter()
   const [eventName, setEventName] = useState('')
-  const [selectedTemplate, setSelectedTemplate] = useState('')
   const [applyToAll, setApplyToAll] = useState(true)
   const [folders, setFolders] = useState<FileList | null>(null)
   const [isUploading, setIsUploading] = useState(false)
   const [showPreview, setShowPreview] = useState(false)
   const [previewData, setPreviewData] = useState<{
     eventName: string
-    template: string
     albums: Array<{
       name: string
       photoCount: number
@@ -30,7 +27,6 @@ export default function CreateBatchAlbumsPage() {
     }>
   } | null>(null)
   const [sessionId] = useState(() => `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`)
-  const [useRealTimeNotifications, setUseRealTimeNotifications] = useState(true)
   const [createdAlbums, setCreatedAlbums] = useState<string[]>([])
   const [errors, setErrors] = useState<string[]>([])
 
@@ -60,25 +56,6 @@ export default function CreateBatchAlbumsPage() {
   // Obter estrutura de pastas
   const folderStructure = getFolderStructure()
 
-  // Hooks para notificações em tempo real
-  const { 
-    notifications, 
-    queueStats, 
-    isConnected, 
-    connectionError,
-    clearNotifications,
-    reconnect
-  } = useNotifications(sessionId)
-  
-  const { 
-    albumProgress, 
-    completedAlbums, 
-    failedAlbums 
-  } = useAlbumProgress(sessionId)
-
-  // Templates de álbuns padronizados
-  const albumTemplates: AlbumTemplate[] = ALBUM_TEMPLATES
-
   const handleFolderUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files
     if (files) {
@@ -88,7 +65,7 @@ export default function CreateBatchAlbumsPage() {
   }
 
   const handlePreview = () => {
-    if (!eventName || !selectedTemplate || folderStructure.size === 0) {
+    if (!eventName || folderStructure.size === 0) {
       alert('Preencha todos os campos obrigatórios')
       return
     }
@@ -101,14 +78,13 @@ export default function CreateBatchAlbumsPage() {
 
     setPreviewData({
       eventName,
-      template: selectedTemplate,
       albums
     })
     setShowPreview(true)
   }
 
   const handleCreateAlbums = async () => {
-    if (!eventName || !selectedTemplate || folderStructure.size === 0) {
+    if (!eventName || folderStructure.size === 0) {
       alert('Preencha todos os campos obrigatórios')
       return
     }
@@ -138,7 +114,6 @@ export default function CreateBatchAlbumsPage() {
 
           return {
             albumName: folderName,
-            template: selectedTemplate,
             files: processedFiles
           }
         })
@@ -151,11 +126,11 @@ export default function CreateBatchAlbumsPage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
         },
+        credentials: 'include', // Incluir cookies na requisição
         body: JSON.stringify({
           eventName,
-          albums,
+          albums: albums,
           sessionId
         }),
       })
@@ -168,7 +143,7 @@ export default function CreateBatchAlbumsPage() {
       const result = await response.json()
       
       if (result.useQueue) {
-        alert(`✅ ${albums.length} álbuns adicionados à fila de processamento!\n\nVocê pode acompanhar o progresso em tempo real abaixo.`)
+        alert(`✅ ${albums.length} álbuns adicionados à fila de processamento!`)
       } else {
         alert(`✅ ${albums.length} álbuns processados com sucesso!\n\n⚠️ Sistema de filas não disponível, processamento foi síncrono.`)
       }
@@ -218,27 +193,6 @@ export default function CreateBatchAlbumsPage() {
                 />
               </div>
 
-              <div>
-                <Label htmlFor="template">Modelo do Álbum</Label>
-                <Select value={selectedTemplate} onValueChange={setSelectedTemplate}>
-                  <SelectTrigger className="mt-1">
-                    <SelectValue placeholder="Selecione um modelo" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {albumTemplates.map((template) => (
-                      <SelectItem key={template.id} value={template.id}>
-                        <div>
-                          <div className="font-medium">{template.name}</div>
-                          <div className="text-sm text-gray-500">
-                            {template.description} • {template.pages} páginas
-                          </div>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
               <div className="flex items-center space-x-2">
                 <input
                   type="checkbox"
@@ -253,122 +207,6 @@ export default function CreateBatchAlbumsPage() {
               </div>
             </CardContent>
           </Card>
-
-          {/* Seção de Notificações em Tempo Real */}
-          {useRealTimeNotifications && (
-            <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-              <h3 className="text-lg font-semibold mb-4 flex items-center">
-                <div className="w-3 h-3 bg-green-500 rounded-full mr-2 animate-pulse"></div>
-                Notificações em Tempo Real
-              </h3>
-              
-              {/* Estatísticas da Fila */}
-              {queueStats && (
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-                  <div className="bg-blue-50 p-3 rounded-lg">
-                    <div className="text-sm text-blue-600">Aguardando</div>
-                    <div className="text-xl font-bold text-blue-800">{queueStats.waiting}</div>
-                  </div>
-                  <div className="bg-yellow-50 p-3 rounded-lg">
-                    <div className="text-sm text-yellow-600">Processando</div>
-                    <div className="text-xl font-bold text-yellow-800">{queueStats.active}</div>
-                  </div>
-                  <div className="bg-green-50 p-3 rounded-lg">
-                    <div className="text-sm text-green-600">Concluídos</div>
-                    <div className="text-xl font-bold text-green-800">{queueStats.completed}</div>
-                  </div>
-                  <div className="bg-red-50 p-3 rounded-lg">
-                    <div className="text-sm text-red-600">Falharam</div>
-                    <div className="text-xl font-bold text-red-800">{queueStats.failed}</div>
-                  </div>
-                </div>
-              )}
-
-              {/* Progresso dos Álbuns */}
-              {albumProgress && Object.keys(albumProgress).length > 0 && (
-                <div className="space-y-3">
-                  <h4 className="font-medium text-gray-700">Progresso dos Álbuns:</h4>
-                  {Object.entries(albumProgress).map(([albumName, progress]) => (
-                    <div key={albumName} className="space-y-2">
-                      <div className="flex justify-between text-sm">
-                        <span className="font-medium">{albumName}</span>
-                        <span className="text-gray-600">{(progress.current as number)}/{(progress.total as number)} fotos</span>
-                      </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2">
-                        <div 
-                          className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                          style={{ width: `${((progress.current as number) / (progress.total as number)) * 100}%` }}
-                        ></div>
-                      </div>
-                      {(progress.status as string) && (
-                        <div className={`text-xs ${
-                          progress.status === 'completed' ? 'text-green-600' :
-                          progress.status === 'failed' ? 'text-red-600' :
-                          'text-blue-600'
-                        }`}>
-                          Status: {progress.status === 'completed' ? 'Concluído' :
-                                  progress.status === 'failed' ? 'Falhou' :
-                                  progress.status === 'processing' ? 'Processando' : 'Aguardando'}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* Lista de Notificações */}
-              {notifications.length > 0 && (
-                <div className="mt-4">
-                  <div className="flex justify-between items-center mb-2">
-                    <h4 className="font-medium text-gray-700">Notificações Recentes:</h4>
-                    <button
-                      onClick={clearNotifications}
-                      className="text-xs text-gray-500 hover:text-gray-700"
-                    >
-                      Limpar
-                    </button>
-                  </div>
-                  <div className="max-h-40 overflow-y-auto space-y-2">
-                    {notifications.slice(-10).reverse().map((notification, index) => (
-                      <div 
-                        key={`${notification.sessionId}-${notification.timestamp}-${index}`} 
-                        className={`text-xs p-2 rounded ${
-                          notification.type === 'album_completed' ? 'bg-green-50 text-green-700' :
-                          notification.type === 'album_failed' ? 'bg-red-50 text-red-700' :
-                          'bg-blue-50 text-blue-700'
-                        }`}
-                      >
-                        <div className="font-medium">{notification.message}</div>
-                        <div className="text-gray-500 mt-1">
-                          {new Date(notification.timestamp).toLocaleTimeString()}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Controles */}
-              <div className="mt-4 flex gap-2">
-                <button
-                  onClick={reconnect}
-                  disabled={isConnected}
-                  className={`px-3 py-1 text-xs rounded ${
-                    isConnected 
-                      ? 'bg-green-100 text-green-700 cursor-not-allowed' 
-                      : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
-                  }`}
-                >
-                  {isConnected ? 'Conectado' : 'Reconectar'}
-                </button>
-                <div className={`px-3 py-1 text-xs rounded ${
-                  isConnected ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-                }`}>
-                  {isConnected ? '🟢 Online' : '🔴 Offline'}
-                </div>
-              </div>
-            </div>
-          )}
 
           {/* Upload de Pastas */}
           <Card>
@@ -424,18 +262,6 @@ export default function CreateBatchAlbumsPage() {
                             </div>
                           </div>
                         </div>
-                        
-                        {isUploading && albumProgress[folderName] !== undefined && (
-                          <div className="flex items-center space-x-2">
-                            {albumProgress[folderName]?.progress === 100 ? (
-                              <CheckCircle2 className="h-5 w-5 text-green-500" />
-                            ) : (
-                              <div className="text-sm text-gray-500">
-                                {String(albumProgress[folderName]?.progress || 0)}%
-                              </div>
-                            )}
-                          </div>
-                        )}
                       </div>
                     ))}
                   </div>
@@ -499,7 +325,7 @@ export default function CreateBatchAlbumsPage() {
             <div className="flex gap-4">
               <Button
                 onClick={handlePreview}
-                disabled={!eventName || !selectedTemplate || folderStructure.size === 0 || isUploading}
+                disabled={!eventName || folderStructure.size === 0 || isUploading}
                 variant="outline"
                 className="min-w-[200px]"
               >
@@ -507,7 +333,7 @@ export default function CreateBatchAlbumsPage() {
               </Button>
               <Button
                 onClick={handleCreateAlbums}
-                disabled={!eventName || !selectedTemplate || folderStructure.size === 0 || isUploading}
+                disabled={!eventName || folderStructure.size === 0 || isUploading}
                 className="min-w-[200px]"
               >
                 {isUploading ? (
@@ -542,7 +368,6 @@ export default function CreateBatchAlbumsPage() {
               <div className="mb-6 p-4 bg-gray-50 rounded-lg">
                 <h3 className="font-semibold mb-2">📝 Configurações Globais</h3>
                 <p><strong>Evento:</strong> {previewData.eventName}</p>
-                <p><strong>Template:</strong> {previewData.template}</p>
                 <p><strong>Total de Álbuns:</strong> {previewData.albums.length}</p>
               </div>
 

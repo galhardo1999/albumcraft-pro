@@ -26,7 +26,8 @@ export async function GET(request: NextRequest) {
       newProjects,
       newPhotos,
       previousPeriodUsers,
-      previousPeriodProjects
+      previousPeriodProjects,
+      previousPeriodPhotos
     ] = await Promise.all([
       // Total de usuários
       prisma.user.count(),
@@ -82,6 +83,16 @@ export async function GET(request: NextRequest) {
             lt: startDate
           }
         }
+      }),
+
+      // Fotos do período anterior
+      prisma.photo.count({
+        where: {
+          uploadedAt: {
+            gte: new Date(startDate.getTime() - (periodDays * 24 * 60 * 60 * 1000)),
+            lt: startDate
+          }
+        }
       })
     ])
 
@@ -93,6 +104,17 @@ export async function GET(request: NextRequest) {
     const projectGrowthRate = previousPeriodProjects > 0 
       ? ((newProjects - previousPeriodProjects) / previousPeriodProjects) * 100 
       : newProjects > 0 ? 100 : 0
+
+    const photoGrowthRate = previousPeriodPhotos > 0 
+      ? ((newPhotos - previousPeriodPhotos) / previousPeriodPhotos) * 100 
+      : newPhotos > 0 ? 100 : 0
+
+    // Calcular armazenamento usado (estimativa baseada no número de fotos)
+    const averagePhotoSize = 2.5 // MB por foto (estimativa)
+    const totalStorageMB = totalPhotos * averagePhotoSize
+    const storageUsed = totalStorageMB > 1024 
+      ? `${(totalStorageMB / 1024).toFixed(1)} GB`
+      : `${totalStorageMB.toFixed(0)} MB`
 
     // Projetos por status
     const projectsByStatus = await prisma.project.groupBy({
@@ -132,6 +154,117 @@ export async function GET(request: NextRequest) {
       take: 10
     })
 
+    // Atividade recente
+    const recentActivity: Array<{
+      id: string;
+      type: 'user_created' | 'project_created' | 'photo_uploaded';
+      description: string;
+      timestamp: string;
+      user?: string;
+    }> = []
+
+    // Usuários criados recentemente
+    const recentUsers = await prisma.user.findMany({
+      where: {
+        createdAt: {
+          gte: startDate
+        }
+      },
+      select: {
+        id: true,
+        name: true,
+        createdAt: true
+      },
+      orderBy: {
+        createdAt: 'desc'
+      },
+      take: 5
+    })
+
+    // Projetos criados recentemente
+    const recentProjects = await prisma.project.findMany({
+      where: {
+        createdAt: {
+          gte: startDate
+        }
+      },
+      select: {
+        id: true,
+        name: true,
+        createdAt: true,
+        user: {
+          select: {
+            name: true
+          }
+        }
+      },
+      orderBy: {
+        createdAt: 'desc'
+      },
+      take: 5
+    })
+
+    // Fotos enviadas recentemente
+    const recentPhotos = await prisma.photo.findMany({
+      where: {
+        uploadedAt: {
+          gte: startDate
+        }
+      },
+      select: {
+        id: true,
+        filename: true,
+        uploadedAt: true,
+        project: {
+          select: {
+            user: {
+              select: {
+                name: true
+              }
+            }
+          }
+        }
+      },
+      orderBy: {
+        uploadedAt: 'desc'
+      },
+      take: 5
+    })
+
+    // Combinar atividades
+    recentUsers.forEach(user => {
+      recentActivity.push({
+        id: `user_${user.id}`,
+        type: 'user_created' as const,
+        description: `Novo usuário cadastrado: ${user.name}`,
+        timestamp: user.createdAt.toISOString(),
+        user: user.name
+      })
+    })
+
+    recentProjects.forEach(project => {
+      recentActivity.push({
+        id: `project_${project.id}`,
+        type: 'project_created' as const,
+        description: `Novo projeto criado: ${project.name}`,
+        timestamp: project.createdAt.toISOString(),
+        user: project.user.name
+      })
+    })
+
+    recentPhotos.forEach(photo => {
+      recentActivity.push({
+        id: `photo_${photo.id}`,
+        type: 'photo_uploaded' as const,
+        description: `Nova foto enviada: ${photo.filename}`,
+        timestamp: photo.uploadedAt.toISOString(),
+        user: photo.project?.user?.name
+      })
+    })
+
+    // Ordenar atividades por data
+    recentActivity.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+
     const reportData = {
       period: periodDays,
       overview: {
@@ -142,7 +275,9 @@ export async function GET(request: NextRequest) {
         newProjects,
         newPhotos,
         userGrowthRate: Math.round(userGrowthRate * 100) / 100,
-        projectGrowthRate: Math.round(projectGrowthRate * 100) / 100
+        projectGrowthRate: Math.round(projectGrowthRate * 100) / 100,
+        photoGrowthRate: Math.round(photoGrowthRate * 100) / 100,
+        storageUsed
       },
       projectsByStatus: projectsByStatus.map(item => ({
         status: item.status,
@@ -159,7 +294,8 @@ export async function GET(request: NextRequest) {
         plan: user.plan,
         projectCount: user._count.projects,
         photoCount: user._count.photos
-      }))
+      })),
+      recentActivity: recentActivity.slice(0, 20)
     }
 
     return NextResponse.json(reportData)

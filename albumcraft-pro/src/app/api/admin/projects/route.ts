@@ -31,7 +31,17 @@ export async function GET(request: NextRequest) {
   try {
     // Buscar todos os projetos com informações detalhadas
     const projects = await prisma.project.findMany({
-      include: {
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        status: true,
+        albumSize: true,
+        template: true,
+        creationType: true,
+        group: true,
+        eventName: true,
+        createdAt: true,
         user: {
           select: {
             id: true,

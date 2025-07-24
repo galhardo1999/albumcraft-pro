@@ -18,7 +18,6 @@ interface ProjectDetails {
   name: string;
   description: string | null;
   albumSize: string;
-  template: string;
   status: string;
   creationType: string;
   group: string | null;
@@ -65,8 +64,7 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
     name: '',
     description: '',
     status: '',
-    albumSize: '',
-    template: ''
+    albumSize: ''
   });
 
   useEffect(() => {
@@ -85,8 +83,7 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
           name: data.project.name,
           description: data.project.description || '',
           status: data.project.status,
-          albumSize: data.project.albumSize,
-          template: data.project.template
+          albumSize: data.project.albumSize
         });
       } else {
         router.push('/admin');
@@ -323,23 +320,6 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
                         </SelectContent>
                       </Select>
                     </div>
-                    <div>
-                      <Label htmlFor="template">Template</Label>
-                      <Select
-                        value={formData.template}
-                        onValueChange={(value) => setFormData({ ...formData, template: value })}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="classic">Classic</SelectItem>
-                          <SelectItem value="modern">Modern</SelectItem>
-                          <SelectItem value="artistic">Artistic</SelectItem>
-                          <SelectItem value="minimal">Minimal</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
                   </>
                 ) : (
                   <>
@@ -364,10 +344,6 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
                     <div>
                       <Label>Tamanho do Álbum</Label>
                       <p className="text-gray-600">{project.albumSize}</p>
-                    </div>
-                    <div>
-                      <Label>Template</Label>
-                      <p className="text-gray-600 capitalize">{project.template}</p>
                     </div>
                     <div>
                       <Label>Tipo de Criação</Label>

@@ -38,6 +38,14 @@ interface TempPhoto {
   isTemp: true
 }
 
+interface ExistingPhoto {
+  id: string
+  filename: string
+  originalUrl: string
+  thumbnailUrl?: string
+  createdAt: string
+}
+
 // Interface unificada para fotos (persistidas ou temporárias)
 type PhotoItem = Photo | TempPhoto
 
@@ -54,12 +62,19 @@ interface FolderStructure {
 export default function CreateMultipleProjectsModal({ isOpen, onClose, onProjectsCreated }: CreateMultipleProjectsModalProps) {
   const [formData, setFormData] = useState({
     userId: '',
-    projectNamePrefix: '',
+    group: '',
+    eventName: '',
     albumSize: 'SIZE_20X20',
     status: 'DRAFT'
   })
   const [users, setUsers] = useState<User[]>([])
-  const [photos, setPhotos] = useState<PhotoItem[]>([])
+  const [photos, setPhotos] = useState<PhotoItem[]>([])  
+  const [tempPhotos, setTempPhotos] = useState<TempPhoto[]>([])  
+  const [existingPhotos, setExistingPhotos] = useState<Photo[]>([])  
+  const [selectedExistingPhotos, setSelectedExistingPhotos] = useState<Set<string>>(new Set())  
+  const [showExistingPhotos, setShowExistingPhotos] = useState(false)  
+  const [loadingExistingPhotos, setLoadingExistingPhotos] = useState(false)  
+  const [useQueue, setUseQueue] = useState(true)
   const [folderStructure, setFolderStructure] = useState<FolderStructure>({})
   const [isLoading, setIsLoading] = useState(false)
   const [isLoadingUsers, setIsLoadingUsers] = useState(false)
@@ -148,6 +163,92 @@ export default function CreateMultipleProjectsModal({ isOpen, onClose, onProject
     return folderStructure
   }
 
+  // Função para carregar fotos existentes do usuário selecionado
+  const loadExistingPhotos = async (userId: string) => {
+    if (!userId) return
+    
+    setLoadingExistingPhotos(true)
+    try {
+      const response = await fetch(`/api/photos?userId=${userId}`)
+      if (response.ok) {
+        const data = await response.json()
+        setExistingPhotos(data.photos || [])
+      }
+    } catch (error) {
+      console.error('Erro ao carregar fotos existentes:', error)
+    } finally {
+      setLoadingExistingPhotos(false)
+    }
+  }
+
+  // Função para upload de arquivos
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files
+    if (!files) return
+
+    Array.from(files).forEach(file => {
+      if (file.type.startsWith('image/')) {
+        const id = Math.random().toString(36).substr(2, 9)
+        const url = URL.createObjectURL(file)
+        
+        const tempPhoto: TempPhoto = {
+          id,
+          file,
+          name: file.name,
+          url,
+          width: 0, // Será atualizado quando a imagem carregar
+          height: 0, // Será atualizado quando a imagem carregar
+          fileSize: file.size,
+          isTemp: true
+        }
+        
+        setTempPhotos(prev => [...prev, tempPhoto])
+      }
+    })
+    
+    // Limpar input
+    event.target.value = ''
+  }
+
+  // Função para remover foto temporária
+  const removeTempPhoto = (id: string) => {
+    setTempPhotos(prev => {
+      const photo = prev.find(p => p.id === id)
+      if (photo) {
+        URL.revokeObjectURL(photo.url)
+      }
+      return prev.filter(p => p.id !== id)
+    })
+  }
+
+  // Função para alternar seleção de foto existente
+  const toggleExistingPhoto = (photoId: string) => {
+    setSelectedExistingPhotos(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(photoId)) {
+        newSet.delete(photoId)
+      } else {
+        newSet.add(photoId)
+      }
+      return newSet
+    })
+  }
+
+  // Função para converter arquivo para Base64
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.readAsDataURL(file)
+      reader.onload = () => {
+        const result = reader.result as string
+        // Remover o prefixo "data:image/...;base64,"
+        const base64 = result.split(',')[1]
+        resolve(base64)
+      }
+      reader.onerror = error => reject(error)
+    })
+  }
+
   // Carregar usuários
   const fetchUsers = async () => {
     try {
@@ -163,6 +264,16 @@ export default function CreateMultipleProjectsModal({ isOpen, onClose, onProject
       setIsLoadingUsers(false)
     }
   }
+
+  // Carregar fotos existentes quando o usuário mudar
+  useEffect(() => {
+    if (formData.userId) {
+      loadExistingPhotos(formData.userId)
+    } else {
+      setExistingPhotos([])
+      setSelectedExistingPhotos(new Set())
+    }
+  }, [formData.userId])
 
   useEffect(() => {
     if (isOpen) {
@@ -291,8 +402,8 @@ export default function CreateMultipleProjectsModal({ isOpen, onClose, onProject
   const handleCreateAlbums = async (e: React.FormEvent) => {
     e.preventDefault()
     
-    if (!formData.userId || !formData.projectNamePrefix.trim()) {
-      setError('Usuário e prefixo do nome são obrigatórios')
+    if (!formData.userId || !formData.group.trim()) {
+      setError('Usuário e nome do grupo são obrigatórios')
       return
     }
 
@@ -305,12 +416,43 @@ export default function CreateMultipleProjectsModal({ isOpen, onClose, onProject
     setError('')
 
     try {
-      const albumsData = Object.entries(folderStructure).map(([folderName, folderPhotos], index) => ({
-        name: `${formData.projectNamePrefix} - ${folderName}`,
-        albumSize: formData.albumSize,
-        status: formData.status,
-        photos: folderPhotos
-      }))
+      const albumsData = await Promise.all(
+        Object.entries(folderStructure).map(async ([folderName, folderPhotos]) => {
+          // Converter fotos para Base64 se usar sistema de filas
+          let processedFiles = undefined
+          
+          if (useQueue && folderPhotos.length > 0) {
+            processedFiles = await Promise.all(
+              folderPhotos.map(async (photo) => {
+                if ('isTemp' in photo && photo.isTemp) {
+                  return {
+                    name: photo.name,
+                    size: photo.fileSize,
+                    type: photo.file.type,
+                    buffer: await fileToBase64(photo.file)
+                  }
+                } else {
+                  // Para fotos existentes, apenas retornar referência
+                  return {
+                    existingPhotoId: photo.id,
+                    name: photo.name
+                  }
+                }
+              })
+            )
+          }
+          
+          return {
+            name: folderName,
+            albumSize: formData.albumSize,
+            status: formData.status,
+            group: formData.group,
+            eventName: formData.eventName || null,
+            files: processedFiles,
+            photos: folderPhotos
+          }
+        })
+      )
 
       // Criar múltiplos projetos
       const response = await fetch('/api/admin/projects/batch', {
@@ -324,8 +466,13 @@ export default function CreateMultipleProjectsModal({ isOpen, onClose, onProject
           albums: albumsData.map(album => ({
             name: album.name,
             albumSize: album.albumSize,
-            status: album.status
-          }))
+            status: album.status,
+            group: formData.group,
+            eventName: formData.eventName || null,
+            files: album.files
+          })),
+          sessionId: `admin-${Date.now()}`,
+          useQueue
         })
       })
 
@@ -480,7 +627,8 @@ export default function CreateMultipleProjectsModal({ isOpen, onClose, onProject
       // Resetar formulário e fechar modal
       setFormData({
         userId: '',
-        projectNamePrefix: '',
+        group: '',
+        eventName: '',
         albumSize: 'SIZE_20X20',
         status: 'DRAFT'
       })
@@ -537,19 +685,34 @@ export default function CreateMultipleProjectsModal({ isOpen, onClose, onProject
               </Select>
             </div>
 
-            {/* Prefixo do Nome */}
+            {/* Nome do Grupo */}
             <div>
-              <Label htmlFor="projectNamePrefix">Prefixo do Nome dos Projetos</Label>
+              <Label htmlFor="group">Nome do Grupo</Label>
               <Input
-                id="projectNamePrefix"
+                id="group"
                 type="text"
-                value={formData.projectNamePrefix}
-                onChange={(e) => handleInputChange('projectNamePrefix', e.target.value)}
-                placeholder="Ex: Evento 2024"
+                value={formData.group}
+                onChange={(e) => handleInputChange('group', e.target.value)}
+                placeholder="Ex: Turma A, Equipe Marketing"
                 required
               />
               <p className="text-sm text-muted-foreground mt-1">
-                Os projetos serão nomeados como: "{formData.projectNamePrefix} - [Nome da Pasta]"
+                Nome do grupo ou turma para identificação dos álbuns múltiplos
+              </p>
+            </div>
+
+            {/* Nome do Evento */}
+            <div>
+              <Label htmlFor="eventName">Nome do Evento</Label>
+              <Input
+                id="eventName"
+                type="text"
+                value={formData.eventName}
+                onChange={(e) => handleInputChange('eventName', e.target.value)}
+                placeholder="Ex: Formatura 2024, Workshop Fotografia"
+              />
+              <p className="text-sm text-muted-foreground mt-1">
+                Nome do evento (opcional) para contexto adicional
               </p>
             </div>
 
@@ -614,7 +777,7 @@ export default function CreateMultipleProjectsModal({ isOpen, onClose, onProject
               
               <div className="mt-2 space-y-4">
                 {/* Botões de Upload */}
-                <div className="flex gap-2">
+                <div className="flex gap-2 flex-wrap">
                   <Button
                     type="button"
                     variant="outline"
@@ -624,7 +787,37 @@ export default function CreateMultipleProjectsModal({ isOpen, onClose, onProject
                     <FolderOpen className="h-4 w-4" />
                     Importar Pastas
                   </Button>
+                  
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => document.getElementById('photo-upload')?.click()}
+                    className="flex items-center gap-2"
+                  >
+                    📷 Upload de Fotos
+                  </Button>
+                  
+                  {formData.userId && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setShowExistingPhotos(!showExistingPhotos)}
+                      className="flex items-center gap-2"
+                    >
+                      📁 Fotos Existentes ({existingPhotos.length})
+                    </Button>
+                  )}
                 </div>
+
+                {/* Input de upload de fotos */}
+                <input
+                  id="photo-upload"
+                  type="file"
+                  multiple
+                  accept="image/*"
+                  onChange={handleFileUpload}
+                  className="hidden"
+                />
 
                 <input
                   ref={folderInputRef}
@@ -636,8 +829,97 @@ export default function CreateMultipleProjectsModal({ isOpen, onClose, onProject
                   {...({ webkitdirectory: "true" } as any)}
                 />
 
-                <p className="text-sm text-muted-foreground">
-                  Formatos aceitos: JPG, PNG. As fotos serão organizadas automaticamente em álbuns baseado no nome das pastas.
+                {/* Opção de usar sistema de filas */}
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="useQueue"
+                    checked={useQueue}
+                    onChange={(e) => setUseQueue(e.target.checked)}
+                    className="rounded"
+                  />
+                  <Label htmlFor="useQueue" className="text-sm">
+                    Usar sistema de filas (recomendado para muitas fotos)
+                  </Label>
+                </div>
+
+                {/* Fotos Temporárias */}
+                {tempPhotos.length > 0 && (
+                  <div>
+                    <h4 className="font-medium mb-2">Fotos Carregadas ({tempPhotos.length})</h4>
+                    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
+                      {tempPhotos.map((photo) => (
+                        <div key={photo.id} className="relative group">
+                          <div className="aspect-square bg-gray-100 rounded-lg overflow-hidden">
+                            <NextImage
+                              src={photo.url}
+                              alt={photo.name}
+                              width={100}
+                              height={100}
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => removeTempPhoto(photo.id)}
+                            className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                          <p className="text-xs text-gray-600 mt-1 truncate">{photo.name}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Fotos Existentes */}
+                {showExistingPhotos && (
+                  <div>
+                    <h4 className="font-medium mb-2">
+                      Fotos Existentes do Usuário 
+                      {loadingExistingPhotos && <span className="text-sm text-gray-500 ml-2">(Carregando...)</span>}
+                    </h4>
+                    {existingPhotos.length > 0 ? (
+                      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2 max-h-60 overflow-y-auto">
+                        {existingPhotos.map((photo) => (
+                           <div 
+                             key={photo.id} 
+                             className={`relative cursor-pointer border-2 rounded-lg overflow-hidden ${
+                               selectedExistingPhotos.has(photo.id) 
+                                 ? 'border-blue-500 bg-blue-50' 
+                                 : 'border-gray-200 hover:border-gray-300'
+                             }`}
+                             onClick={() => toggleExistingPhoto(photo.id)}
+                           >
+                             <div className="aspect-square bg-gray-100">
+                               <NextImage
+                                 src={photo.url}
+                                 alt={photo.name}
+                                 width={100}
+                                 height={100}
+                                 className="w-full h-full object-cover"
+                               />
+                             </div>
+                             {selectedExistingPhotos.has(photo.id) && (
+                               <div className="absolute inset-0 bg-blue-500 bg-opacity-20 flex items-center justify-center">
+                                 <div className="bg-blue-500 text-white rounded-full p-1">
+                                   ✓
+                                 </div>
+                               </div>
+                             )}
+                             <p className="text-xs text-gray-600 p-1 truncate">{photo.name}</p>
+                           </div>
+                         ))}
+                       </div>
+                     ) : (
+                       <p className="text-sm text-gray-500">Nenhuma foto encontrada para este usuário.</p>
+                     )}
+                   </div>
+                 )}
+
+                 <p className="text-sm text-muted-foreground">
+                   Formatos aceitos: JPG, PNG. As fotos serão organizadas automaticamente em álbuns baseado no nome das pastas.
                 </p>
 
                 {/* Estrutura de Pastas */}
@@ -670,7 +952,7 @@ export default function CreateMultipleProjectsModal({ isOpen, onClose, onProject
                           <div className="flex items-center gap-2 mb-3">
                             <FolderOpen className="h-4 w-4 text-blue-500" />
                             <h5 className="font-medium text-sm">
-                              {formData.projectNamePrefix} - {folderName}
+                              {folderName}
                             </h5>
                             <span className="text-xs text-muted-foreground">
                               ({folderPhotos.length} fotos)

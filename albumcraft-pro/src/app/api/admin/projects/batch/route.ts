@@ -1,16 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/admin-middleware'
 import { prisma } from '@/lib/prisma'
+import { addAlbumCreationJob } from '@/lib/queue'
 
 interface AlbumData {
   name: string
   albumSize: string
   status: string
+  group: string
+  eventName?: string | null
+  files?: Array<{
+    name: string
+    size: number
+    type: string
+    buffer: string // Base64 encoded
+  }>
 }
 
 interface BatchProjectRequest {
   userId: string
   albums: AlbumData[]
+  sessionId?: string
+  useQueue?: boolean
 }
 
 export async function POST(request: NextRequest) {
@@ -22,7 +33,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const body: BatchProjectRequest = await request.json()
-    const { userId, albums } = body
+    const { userId, albums, sessionId, useQueue = true } = body
 
     // Validar dados de entrada
     if (!userId || !albums || !Array.isArray(albums) || albums.length === 0) {
@@ -44,38 +55,60 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Criar múltiplos projetos
+    // Se usar sistema de filas e há arquivos para processar
+    if (useQueue && albums.some(album => album.files && album.files.length > 0)) {
+      const jobPromises = albums.map(async (album, index) => {
+        if (!album.files || album.files.length === 0) {
+          // Criar projeto sem fotos diretamente
+          return await createProjectDirectly(userId, album)
+        }
+
+        // Converter arquivos de Base64 para Buffer
+        const processedFiles = album.files.map(file => ({
+          ...file,
+          buffer: Buffer.from(file.buffer, 'base64')
+        }))
+
+        // Adicionar job à fila com prioridade baseada na ordem
+        const priority = albums.length - index
+        
+        const job = await addAlbumCreationJob({
+           userId,
+           eventName: album.eventName || album.group,
+           albumName: album.name,
+           files: processedFiles,
+           sessionId: sessionId || `admin-${Date.now()}`
+         }, priority)
+
+        return {
+          albumName: album.name,
+          jobId: job?.id || null,
+          status: job ? 'queued' : 'failed'
+        }
+      })
+
+      const results = await Promise.all(jobPromises)
+      
+      return NextResponse.json({
+        success: true,
+        message: `${albums.length} álbuns adicionados à fila de processamento`,
+        results,
+        sessionId: sessionId || `admin-${Date.now()}`,
+        useQueue: true
+      })
+    }
+
+    // Criar múltiplos projetos diretamente (modo síncrono)
     const createdProjects = []
     
     for (const album of albums) {
       // Validar dados do álbum
-      if (!album.name || !album.albumSize || !album.status) {
+      if (!album.name || !album.albumSize || !album.status || !album.group) {
         continue // Pular álbuns com dados inválidos
       }
 
       try {
-        const project = await prisma.project.create({
-          data: {
-            name: album.name,
-            albumSize: album.albumSize as any, // Será validado pelo Prisma
-            status: album.status as any, // Será validado pelo Prisma
-            userId: userId,
-            creationType: 'BATCH',
-            template: 'classic', // Template padrão
-            createdAt: new Date(),
-            updatedAt: new Date()
-          },
-          include: {
-            user: {
-              select: {
-                id: true,
-                email: true,
-                name: true
-              }
-            }
-          }
-        })
-
+        const project = await createProjectDirectly(userId, album)
         createdProjects.push(project)
       } catch (projectError) {
         console.error('Erro ao criar projeto:', album.name, projectError)
@@ -94,7 +127,8 @@ export async function POST(request: NextRequest) {
       success: true,
       message: `${createdProjects.length} projetos criados com sucesso`,
       projects: createdProjects,
-      total: createdProjects.length
+      total: createdProjects.length,
+      useQueue: false
     })
 
   } catch (error) {
@@ -105,3 +139,30 @@ export async function POST(request: NextRequest) {
     )
   }
 }
+
+// Função auxiliar para criar projeto diretamente
+async function createProjectDirectly(userId: string, album: AlbumData) {
+  return await prisma.project.create({
+    data: {
+      name: album.name,
+      albumSize: album.albumSize as any,
+      status: album.status as any,
+      userId: userId,
+      creationType: 'BATCH',
+      template: 'classic',
+      group: album.group,
+      eventName: album.eventName || null,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    },
+    include: {
+      user: {
+        select: {
+          id: true,
+          email: true,
+          name: true
+        }
+      }
+    }
+   })
+ }

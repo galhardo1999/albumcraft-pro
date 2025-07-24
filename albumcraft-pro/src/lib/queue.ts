@@ -3,7 +3,6 @@ export interface AlbumCreationJobData {
   userId: string
   eventName: string
   albumName: string
-  template: string
   files: Array<{
     name: string
     size: number
@@ -118,20 +117,14 @@ class InMemoryQueue {
   }
 
   private async processAlbum(data: AlbumCreationJobData): Promise<void> {
-    const { userId, eventName, albumName, template, files, sessionId } = data;
+    const { userId, eventName, albumName, files, sessionId } = data;
 
     try {
       // Importar dependências necessárias
       const { prisma } = await import('./prisma');
-      const { sendAlbumProgressSimple } = await import('./notifications');
 
       // 1. Criar o projeto/álbum no banco de dados PRIMEIRO (igual ao sistema individual)
-      await sendAlbumProgressSimple(sessionId, albumName, 10, 'Criando álbum no banco de dados...');
-      
-      // Mapear template para enum válido
-      const validTemplate = (['classic', 'modern', 'artistic', 'minimal'] as const).includes(template as 'classic' | 'modern' | 'artistic' | 'minimal') 
-        ? template as 'classic' | 'modern' | 'artistic' | 'minimal'
-        : 'modern'; // fallback padrão
+      console.log('Criando álbum no banco de dados...');
       
       const project = await prisma.project.create({
         data: {
@@ -139,7 +132,6 @@ class InMemoryQueue {
           name: albumName,
           description: `Álbum criado automaticamente para o evento: ${eventName}`,
           albumSize: 'MEDIUM', // Usar enum válido
-          template: validTemplate, // Usar enum válido
           status: 'DRAFT', // Começar como DRAFT igual ao sistema individual
           creationType: 'BATCH', // Usar enum válido
           group: eventName, // Nome do grupo/evento
@@ -148,7 +140,7 @@ class InMemoryQueue {
       });
 
       console.log(`✅ Projeto criado: ${project.id} - ${albumName}`);
-      await sendAlbumProgressSimple(sessionId, albumName, 20, 'Álbum criado com sucesso!');
+      console.log('Álbum criado com sucesso!');
 
       // 2. Processar fotos usando a mesma lógica do sistema individual
       const { uploadToS3, generateS3Key, generateThumbnailKey, isS3Configured } = await import('./s3');
@@ -162,12 +154,7 @@ class InMemoryQueue {
         const file = files[i];
         const progress = 20 + Math.floor((i / totalFiles) * 70); // 20% a 90%
         
-        await sendAlbumProgressSimple(
-          sessionId, 
-          albumName, 
-          progress, 
-          `Processando foto ${i + 1}/${totalFiles}: ${file.name}`
-        );
+        console.log(`Processando foto ${i + 1}/${totalFiles}: ${file.name}`);
 
         try {
           // Usar a mesma lógica da API /api/photos, mas diretamente (sem HTTP)
@@ -306,7 +293,7 @@ class InMemoryQueue {
       }
 
       // 3. Finalizar o projeto (igual ao sistema individual)
-      await sendAlbumProgressSimple(sessionId, albumName, 95, 'Finalizando álbum...');
+      console.log('Finalizando álbum...');
       
       await prisma.project.update({
         where: { id: project.id },
@@ -320,7 +307,7 @@ class InMemoryQueue {
         ? `Álbum concluído! ${uploadedCount}/${totalFiles} fotos processadas. ${errors.length} erros.`
         : `Álbum concluído! ${uploadedCount} fotos processadas com sucesso.`;
 
-      await sendAlbumProgressSimple(sessionId, albumName, 100, successMessage);
+      console.log(successMessage);
       
       console.log(`🎉 Álbum processado: ${albumName}`);
       console.log(`📊 Estatísticas:`);
@@ -335,13 +322,7 @@ class InMemoryQueue {
     } catch (error) {
       console.error(`❌ Erro ao processar álbum ${albumName}:`, error);
       
-      // Importar novamente para o catch
-      try {
-        const { sendAlbumProgressSimple } = await import('./notifications');
-        await sendAlbumProgressSimple(sessionId, albumName, 0, `Erro ao processar álbum: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
-      } catch (notificationError) {
-        console.error('❌ Erro ao enviar notificação de erro:', notificationError);
-      }
+      console.error(`Erro ao processar álbum: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
       
       throw error;
     }
@@ -386,7 +367,7 @@ export const addAlbumCreationJob = async (
 
 // Processamento síncrono como fallback
 export const processAlbumSynchronously = async (data: AlbumCreationJobData) => {
-  const { userId, eventName, albumName, template, files } = data
+  const { userId, eventName, albumName, files } = data
 
   try {
     console.log(`🔄 Processando álbum sincronamente: ${albumName}`)
@@ -404,7 +385,6 @@ export const processAlbumSynchronously = async (data: AlbumCreationJobData) => {
       id: `project_${Date.now()}`,
       name: albumName,
       eventName,
-      template,
       userId,
       status: 'COMPLETED',
       photoCount: files.length
