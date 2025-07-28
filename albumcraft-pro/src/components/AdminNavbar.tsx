@@ -10,7 +10,8 @@ import {
   BarChart3,
   LogOut,
   Menu,
-  X
+  X,
+  Image
 } from 'lucide-react';
 
 interface AdminSidebarProps {
@@ -49,6 +50,12 @@ export function AdminNavbar({ activeTab = 'overview', onTabChange }: AdminSideba
       label: 'Projetos',
       icon: FolderOpen,
       href: '/admin/projetos'
+    },
+    {
+      id: 'photos',
+      label: 'Fotos',
+      icon: Image,
+      href: '/admin/fotos'
     },
     {
       id: 'reports',
