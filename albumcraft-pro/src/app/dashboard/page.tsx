@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { Plus, FolderOpen, Camera, BarChart3, Users, Clock, HardDrive } from 'lucide-react'
 import { useProtectedRoute } from '@/hooks/useAuth'
 import { getAlbumSizeByIdWithFallback, formatSizeDisplay } from '@/lib/album-sizes'
 
@@ -25,10 +26,16 @@ interface DashboardStats {
   storageUsed: string
 }
 
+interface UserPhotoEvents {
+  hasPhotoEvents: boolean
+  count: number
+}
+
 export default function DashboardPage() {
   const { logout } = useProtectedRoute()
   const [projects, setProjects] = useState<Project[]>([])
   const [stats, setStats] = useState<DashboardStats | null>(null)
+  const [userPhotoEvents, setUserPhotoEvents] = useState<UserPhotoEvents | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -62,6 +69,25 @@ export default function DashboardPage() {
       if (statsResponse.ok) {
         const statsData = await statsResponse.json()
         setStats(statsData.data)
+      }
+
+      // Buscar eventos de fotos do usuário
+      const photoEventsResponse = await fetch('/api/user/photo-events', {
+        credentials: 'include'
+      })
+      
+      if (photoEventsResponse.ok) {
+        const photoEventsData = await photoEventsResponse.json()
+        const events = photoEventsData.data || []
+        setUserPhotoEvents({
+          hasPhotoEvents: events.length > 0,
+          count: events.length
+        })
+      } else {
+        setUserPhotoEvents({
+          hasPhotoEvents: false,
+          count: 0
+        })
       }
       
     } catch (err) {
@@ -242,7 +268,7 @@ export default function DashboardPage() {
         {/* Quick Actions */}
         <div className="mb-8">
           <h2 className="text-lg font-semibold mb-4">Ações Rápidas</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-w-4xl">
             <Link
               href="/projects/new"
               className="rounded-xl border bg-card p-6 text-center hover:bg-accent transition-colors group"
@@ -268,79 +294,25 @@ export default function DashboardPage() {
               <h3 className="font-semibold mb-1">Meus Álbuns</h3>
               <p className="text-sm text-muted-foreground">Ver todos os projetos</p>
             </Link>
-          </div>
-        </div>
 
-        {/* Recent Projects */}
-        <div>
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-lg font-semibold">Álbuns Recentes</h2>
-            <Link
-              href="/projects"
-              className="text-sm font-medium text-primary hover:text-primary/80 transition-colors"
-            >
-              Ver todos
-            </Link>
-          </div>
-
-          {projects.length === 0 ? (
-            <div className="rounded-xl border bg-card p-8 text-center">
-              <div className="p-4 bg-muted/50 rounded-lg w-fit mx-auto mb-4">
-                <svg className="w-8 h-8 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                </svg>
-              </div>
-              <h3 className="text-lg font-semibold mb-2">Nenhum álbum ainda</h3>
-              <p className="text-muted-foreground mb-6">Comece criando seu primeiro projeto de álbum</p>
+            {userPhotoEvents?.hasPhotoEvents && (
               <Link
-                href="/projects/new"
-                className="inline-flex items-center px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors font-medium"
+                href="/fotos-disponiveis"
+                className="rounded-xl border bg-card p-6 text-center hover:bg-accent transition-colors group"
               >
-                Criar Primeiro Álbum
-              </Link>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {projects.slice(0, 6).map((project) => (
-                <div key={project.id} className="rounded-xl border bg-card hover:bg-accent/50 transition-colors group">
-                  <div className="p-6">
-                    <div className="flex justify-between items-start mb-3">
-                      <h3 className="font-semibold truncate group-hover:text-primary transition-colors">
-                        {project.name}
-                      </h3>
-                      <span className={`px-2 py-1 text-xs font-medium rounded-md border ${getStatusColor(project.status)}`}>
-                        {getStatusText(project.status)}
-                      </span>
-                    </div>
-                    
-                    {project.description && (
-                      <p className="text-muted-foreground text-sm mb-3 line-clamp-2">
-                        {project.description}
-                      </p>
-                    )}
-                    
-                    <div className="flex justify-between items-center text-sm text-muted-foreground mb-4">
-                      <span>{getAlbumSizeText(project.albumSize)}</span>
-                      <span>{project._count?.pages || 0} páginas</span>
-                    </div>
-                    
-                    <div className="flex justify-between items-center">
-                      <span className="text-xs text-muted-foreground">
-                        {new Date(project.updatedAt).toLocaleDateString('pt-BR')}
-                      </span>
-                      <Link
-                        href={`/projects/${project.id}`}
-                        className="text-sm font-medium text-primary hover:text-primary/80 transition-colors"
-                      >
-                        Abrir →
-                      </Link>
-                    </div>
-                  </div>
+                <div className="p-3 bg-purple-100 rounded-lg w-fit mx-auto mb-3 group-hover:bg-purple-200 transition-colors">
+                  <Camera className="w-6 h-6 text-purple-600" />
                 </div>
-              ))}
-            </div>
-          )}
+                <h3 className="font-semibold mb-1">Fotos Disponíveis</h3>
+                <p className="text-sm text-muted-foreground">
+                  {userPhotoEvents.count} evento{userPhotoEvents.count !== 1 ? 's' : ''} disponível{userPhotoEvents.count !== 1 ? 'eis' : ''}
+                </p>
+              </Link>
+            )}
+          </div>
         </div>
+
+        
       </main>
     </div>
   )

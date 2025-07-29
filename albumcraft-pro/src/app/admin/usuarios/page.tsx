@@ -199,38 +199,6 @@ export default function AdminUsersPage() {
                     </div>
                   </CardContent>
                 </Card>
-                
-                <Card>
-                  <CardContent className="pt-6">
-                    <div className="flex items-center">
-                      <Calendar className="h-8 w-8 text-purple-600" />
-                      <div className="ml-4">
-                        <p className="text-sm font-medium text-gray-600">Novos (30 dias)</p>
-                        <p className="text-2xl font-bold text-gray-900">
-                          {users.filter(u => {
-                            const thirtyDaysAgo = new Date();
-                            thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-                            return new Date(u.createdAt) > thirtyDaysAgo;
-                          }).length}
-                        </p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-                
-                <Card>
-                  <CardContent className="pt-6">
-                    <div className="flex items-center">
-                      <Mail className="h-8 w-8 text-orange-600" />
-                      <div className="ml-4">
-                        <p className="text-sm font-medium text-gray-600">Usuários Ativos</p>
-                        <p className="text-2xl font-bold text-gray-900">
-                          {users.filter(u => u.lastLogin).length}
-                        </p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
               </div>
 
               {/* Filtros */}

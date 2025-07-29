@@ -11,7 +11,8 @@ import {
   LogOut,
   Menu,
   X,
-  Image
+  Image,
+  Images
 } from 'lucide-react';
 
 interface AdminSidebarProps {
@@ -53,9 +54,9 @@ export function AdminNavbar({ activeTab = 'overview', onTabChange }: AdminSideba
     },
     {
       id: 'photos',
-      label: 'Fotos',
+      label: 'Galerias de Fotos',
       icon: Image,
-      href: '/admin/fotos'
+      href: '/admin/galerias'
     },
     {
       id: 'reports',

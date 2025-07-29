@@ -21,30 +21,58 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Buscar todos os usuários com informações básicas
-    const users = await prisma.user.findMany({
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        plan: true,
-        isAdmin: true,
-        createdAt: true,
-        updatedAt: true,
-        lastLogin: true,
-        _count: {
-          select: {
-            projects: true,
-            photos: true
+    const { searchParams } = new URL(request.url);
+    const search = searchParams.get('search');
+    const page = parseInt(searchParams.get('page') || '1');
+    const limit = parseInt(searchParams.get('limit') || '50');
+    const skip = (page - 1) * limit;
+
+    // Construir filtros de busca
+    const where = search ? {
+      OR: [
+        { name: { contains: search, mode: 'insensitive' as const } },
+        { email: { contains: search, mode: 'insensitive' as const } }
+      ]
+    } : {};
+
+    // Buscar usuários com filtros
+    const [users, total] = await Promise.all([
+      prisma.user.findMany({
+        where,
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          plan: true,
+          isAdmin: true,
+          createdAt: true,
+          updatedAt: true,
+          lastLogin: true,
+          _count: {
+            select: {
+              projects: true,
+              photos: true
+            }
           }
-        }
-      },
-      orderBy: {
-        createdAt: 'desc'
+        },
+        orderBy: {
+          createdAt: 'desc'
+        },
+        skip,
+        take: limit
+      }),
+      prisma.user.count({ where })
+    ]);
+
+    return NextResponse.json({ 
+      users,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit)
       }
     });
-
-    return NextResponse.json({ users });
   } catch (error) {
     console.error('Erro ao buscar usuários:', error);
     return NextResponse.json(

@@ -77,6 +77,9 @@ model User {
   projects Project[]
   photos   Photo[]
   layouts  Layout[]
+  
+  // Relacionamentos para galeria de fotos
+  photoEvents PhotoEvent[] @relation("PhotoEventUsers")
 
   @@map("users")
 }
@@ -188,4 +191,52 @@ model Layout {
   pages   Page[]
 
   @@map("layouts")
+}
+
+// Modelos para Galeria de Fotos
+model PhotoEvent {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relacionamentos
+  albums PhotoAlbum[]
+  users  User[]       @relation("PhotoEventUsers")
+
+  @@map("photo_events")
+}
+
+model PhotoAlbum {
+  id           String   @id @default(cuid())
+  eventId      String   @map("event_id")
+  name         String
+  description  String?
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  // Relacionamentos
+  event  PhotoEvent      @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  photos PhotoGallery[]
+
+  @@map("photo_albums")
+}
+
+model PhotoGallery {
+  id         String   @id @default(cuid())
+  albumId    String   @map("album_id")
+  filename   String
+  url        String   // URL principal da foto
+  size       Int      // Tamanho do arquivo em bytes
+  mimeType   String   @map("mime_type")
+  uploadedAt DateTime @default(now()) @map("uploaded_at")
+  
+  // Campos para S3
+  s3Key      String   @map("s3_key")
+
+  // Relacionamentos
+  album PhotoAlbum @relation(fields: [albumId], references: [id], onDelete: Cascade)
+
+  @@map("photo_gallery")
 }
