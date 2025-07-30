@@ -43,7 +43,12 @@ export default function GaleriasPage() {
   const fetchEvents = async () => {
     try {
       setIsLoading(true);
-      const response = await fetch('/api/admin/photo-events');
+      const response = await fetch('/api/admin/photo-events', {
+        credentials: 'include', // Incluir cookies de autenticação
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
       
       if (!response.ok) {
         throw new Error('Erro ao carregar eventos');
@@ -67,6 +72,10 @@ export default function GaleriasPage() {
     try {
       const response = await fetch(`/api/admin/photo-events/${eventId}`, {
         method: 'DELETE',
+        credentials: 'include', // Incluir cookies de autenticação
+        headers: {
+          'Content-Type': 'application/json',
+        },
       });
 
       if (!response.ok) {

@@ -70,7 +70,12 @@ export default function EventoDetalhePage() {
   const fetchEvent = async () => {
     try {
       setIsLoading(true);
-      const response = await fetch(`/api/admin/photo-events/${eventId}`);
+      const response = await fetch(`/api/admin/photo-events/${eventId}`, {
+        credentials: 'include', // Incluir cookies de autenticação
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
       
       if (!response.ok) {
         throw new Error('Erro ao carregar evento');
@@ -94,6 +99,10 @@ export default function EventoDetalhePage() {
     try {
       const response = await fetch(`/api/admin/photo-albums/${albumId}`, {
         method: 'DELETE',
+        credentials: 'include', // Incluir cookies de autenticação
+        headers: {
+          'Content-Type': 'application/json',
+        },
       });
 
       if (!response.ok) {
@@ -105,11 +114,14 @@ export default function EventoDetalhePage() {
         } catch {
           // Se não conseguir parsear o JSON, usar mensagem baseada no status
           switch (response.status) {
-            case 404:
-              errorMessage = 'Álbum não encontrado';
+            case 401:
+              errorMessage = 'Sessão expirada. Faça login novamente.';
               break;
             case 403:
               errorMessage = 'Sem permissão para excluir este álbum';
+              break;
+            case 404:
+              errorMessage = 'Álbum não encontrado';
               break;
             case 500:
               errorMessage = 'Erro interno do servidor ao excluir álbum';
