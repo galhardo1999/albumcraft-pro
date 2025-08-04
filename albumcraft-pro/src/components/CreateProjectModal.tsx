@@ -66,6 +66,11 @@ export default function CreateProjectModal({ isOpen, onClose, onProjectCreated }
   const [error, setError] = useState('')
   const [selectedCategory, setSelectedCategory] = useState<'popular' | 'square' | 'landscape' | 'portrait'>('popular')
   const fileInputRef = useRef<HTMLInputElement>(null)
+  
+  // Estados para barra de progresso
+  const [isCreatingMultiple, setIsCreatingMultiple] = useState(false)
+  const [progress, setProgress] = useState(0)
+  const [currentAlbum, setCurrentAlbum] = useState('')
 
   // Obter tamanhos baseado na categoria selecionada
   const getAlbumSizes = (): AlbumSizeConfig[] => {
@@ -277,11 +282,17 @@ export default function CreateProjectModal({ isOpen, onClose, onProjectCreated }
       return
     }
 
+    // Se for criação múltipla, usar lógica específica
+    if (formData.creationType === 'BATCH') {
+      await handleMultipleAlbumsCreation()
+      return
+    }
+
     setIsLoading(true)
     setError('')
 
     try {
-      // Criar projeto
+      // Criar projeto único
       const response = await fetch('/api/admin/projects', {
         method: 'POST',
         headers: {
@@ -299,28 +310,159 @@ export default function CreateProjectModal({ isOpen, onClose, onProjectCreated }
       
       // Se há fotos para fazer upload
       if (photos.length > 0) {
-        await uploadPhotos(result.project.id)
+        // Upload photos one by one
+        for (const photo of photos) {
+          const formDataUpload = new FormData()
+          
+          if ('isTemp' in photo && photo.isTemp) {
+            // For temporary photos, upload the actual file
+            formDataUpload.append('file', photo.file)
+          } else {
+            // For existing photos, just associate them with the project
+            formDataUpload.append('photoId', photo.id)
+          }
+          
+          formDataUpload.append('projectId', result.project.id)
+          
+          const uploadResponse = await fetch('/api/admin/photos', {
+            method: 'POST',
+            body: formDataUpload,
+          })
+          
+          if (!uploadResponse.ok) {
+            throw new Error('Failed to upload photo')
+          }
+        }
       }
 
       onProjectCreated()
       onClose()
-      
-      // Reset form
-      setFormData({
-        userId: '',
-        name: '',
-        albumSize: 'SIZE_20X20',
-        status: 'DRAFT',
-        creationType: 'SINGLE'
-      })
-      setPhotos([])
-      setSelectedExistingPhotos(new Set())
+      resetForm()
       
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Erro desconhecido')
     } finally {
       setIsLoading(false)
     }
+  }
+
+  const handleMultipleAlbumsCreation = async () => {
+    setIsCreatingMultiple(true)
+    setProgress(0)
+    setError('')
+
+    try {
+      // Simular criação de múltiplos álbuns baseado nas fotos
+      const albumsToCreate = Math.max(1, Math.floor(photos.length / 10)) // 1 álbum a cada 10 fotos, mínimo 1
+      const albums = []
+
+      for (let i = 0; i < albumsToCreate; i++) {
+         const albumName = `${formData.name} - Álbum ${i + 1}`
+         const startIndex = i * 10
+         const endIndex = Math.min(startIndex + 10, photos.length)
+         const albumPhotos = photos.slice(startIndex, endIndex)
+
+         // Processar arquivos de forma assíncrona
+         const tempPhotos = albumPhotos.filter(photo => 'isTemp' in photo && photo.isTemp) as TempPhoto[]
+         const files = []
+         
+         for (const photo of tempPhotos) {
+           const base64Buffer = await fileToBase64(photo.file)
+           files.push({
+             name: photo.name,
+             size: photo.fileSize,
+             type: photo.file.type,
+             buffer: base64Buffer
+           })
+         }
+
+         albums.push({
+           name: albumName,
+           albumSize: formData.albumSize,
+           status: formData.status,
+           group: formData.name, // Usar o nome do projeto como grupo
+           eventName: formData.name,
+           files: files
+         })
+       }
+
+      // Criar álbuns um por vez para mostrar progresso
+      for (let i = 0; i < albums.length; i++) {
+        const album = albums[i]
+        setCurrentAlbum(album.name)
+        
+        const response = await fetch('/api/admin/projects', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            userId: formData.userId,
+            name: album.name,
+            albumSize: album.albumSize,
+            status: album.status,
+            creationType: 'BATCH'
+          }),
+        })
+
+        if (!response.ok) {
+          throw new Error(`Erro ao criar álbum: ${album.name}`)
+        }
+
+        // Atualizar progresso
+        const progressPercent = Math.round(((i + 1) / albums.length) * 100)
+        setProgress(progressPercent)
+
+        // Pequena pausa para mostrar o progresso
+        await new Promise(resolve => setTimeout(resolve, 500))
+      }
+
+      // Aguardar um pouco no 100% antes de redirecionar
+      await new Promise(resolve => setTimeout(resolve, 1000))
+
+      // Redirecionar para Meus Álbuns
+      onProjectCreated()
+      onClose()
+      resetForm()
+
+      // Redirecionar para a página de projetos
+      if (typeof window !== 'undefined') {
+        window.location.href = '/projects'
+      }
+
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Erro ao criar múltiplos álbuns')
+    } finally {
+      setIsCreatingMultiple(false)
+      setProgress(0)
+      setCurrentAlbum('')
+    }
+  }
+
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.readAsDataURL(file)
+      reader.onload = () => {
+        const result = reader.result as string
+        // Remover o prefixo "data:image/...;base64,"
+        const base64 = result.split(',')[1]
+        resolve(base64)
+      }
+      reader.onerror = error => reject(error)
+    })
+  }
+
+  const resetForm = () => {
+    setFormData({
+      userId: '',
+      name: '',
+      albumSize: 'SIZE_20X20',
+      status: 'DRAFT',
+      creationType: 'SINGLE'
+    })
+    setPhotos([])
+    setSelectedExistingPhotos(new Set())
   }
 
   if (!isOpen) return null
@@ -342,6 +484,38 @@ export default function CreateProjectModal({ isOpen, onClose, onProjectCreated }
           {error && (
             <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
               {error}
+            </div>
+          )}
+
+          {/* Barra de Progresso para Múltiplos Álbuns */}
+          {isCreatingMultiple && (
+            <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-sm font-medium text-blue-900">Criando Múltiplos Álbuns</h3>
+                <span className="text-sm font-bold text-blue-900">{progress}%</span>
+              </div>
+              
+              {/* Barra de Progresso */}
+              <div className="w-full bg-blue-200 rounded-full h-3 mb-2">
+                <div 
+                  className="bg-blue-600 h-3 rounded-full transition-all duration-500 ease-out"
+                  style={{ width: `${progress}%` }}
+                ></div>
+              </div>
+              
+              {/* Álbum Atual */}
+              {currentAlbum && (
+                <p className="text-xs text-blue-700">
+                  Criando: <span className="font-medium">{currentAlbum}</span>
+                </p>
+              )}
+              
+              {/* Mensagem de conclusão */}
+              {progress === 100 && (
+                <p className="text-xs text-green-700 font-medium mt-1">
+                  ✅ Todos os álbuns foram criados! Redirecionando...
+                </p>
+              )}
             </div>
           )}
 
@@ -565,15 +739,46 @@ export default function CreateProjectModal({ isOpen, onClose, onProjectCreated }
                   <SelectItem value="BATCH">Múltiplos Álbuns</SelectItem>
                 </SelectContent>
               </Select>
+              
+              {/* Explicação para criação múltipla */}
+              {formData.creationType === 'BATCH' && (
+                <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <p className="text-sm text-blue-800">
+                    <strong>Criação Múltipla:</strong> Será criado 1 álbum a cada 10 fotos carregadas. 
+                    Uma barra de progresso mostrará o andamento da criação e você será redirecionado 
+                    para "Meus Álbuns" ao final.
+                  </p>
+                  {photos.length > 0 && (
+                    <p className="text-xs text-blue-600 mt-1">
+                      Com {photos.length} fotos, serão criados {Math.max(1, Math.floor(photos.length / 10))} álbuns.
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Botões */}
             <div className="flex justify-end gap-3 pt-4">
-              <Button type="button" variant="outline" onClick={onClose}>
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={onClose}
+                disabled={isLoading || isCreatingMultiple}
+              >
                 Cancelar
               </Button>
-              <Button type="submit" disabled={isLoading}>
-                {isLoading ? 'Criando...' : 'Criar Projeto'}
+              <Button 
+                type="submit" 
+                disabled={isLoading || isCreatingMultiple}
+              >
+                {isCreatingMultiple 
+                  ? 'Criando Múltiplos Álbuns...' 
+                  : isLoading 
+                    ? 'Criando...' 
+                    : formData.creationType === 'BATCH' 
+                      ? 'Criar Múltiplos Álbuns' 
+                      : 'Criar Projeto'
+                }
               </Button>
             </div>
           </form>

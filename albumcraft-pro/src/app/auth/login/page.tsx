@@ -67,7 +67,32 @@ export default function LoginPage() {
       const data = await response.json()
 
       if (!response.ok) {
-        throw new Error(data.error || 'Erro ao fazer login')
+        // Extrair a mensagem de erro corretamente
+        let errorMessage = 'Erro ao fazer login'
+        
+        if (data.error?.message) {
+          errorMessage = data.error.message
+        } else if (data.message) {
+          errorMessage = data.message
+        } else if (data.error?.code) {
+          // Mapear códigos de erro para mensagens amigáveis
+          switch (data.error.code) {
+            case 'INVALID_CREDENTIALS':
+              errorMessage = 'Email ou senha incorretos. Verifique suas credenciais e tente novamente.'
+              break
+            case 'VALIDATION_ERROR':
+              errorMessage = 'Dados inválidos. Verifique se o email está correto e a senha foi preenchida.'
+              break
+            case 'INTERNAL_ERROR':
+              errorMessage = 'Erro interno do servidor. Tente novamente em alguns instantes.'
+              break
+            default:
+              errorMessage = 'Erro de autenticação. Tente novamente.'
+          }
+        }
+        
+        setError(errorMessage)
+        return
       }
 
       // Verificar se o usuário é admin e redirecionar adequadamente
@@ -77,7 +102,9 @@ export default function LoginPage() {
         router.push('/dashboard')
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro inesperado')
+      console.error('Login error:', err)
+      // Erro de rede ou outro tipo de erro inesperado
+      setError('Erro de conexão. Verifique sua internet e tente novamente.')
     } finally {
       setIsLoading(false)
     }

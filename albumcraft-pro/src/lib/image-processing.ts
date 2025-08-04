@@ -1,6 +1,12 @@
 import sharp from 'sharp'
+import { performanceConfig } from './performance-config'
 
-// Configurações de processamento de imagem
+// Configurar Sharp para melhor performance usando configurações dinâmicas
+const sharpConfig = performanceConfig.getSharpConfig()
+sharp.concurrency(sharpConfig.concurrency)
+sharp.cache(sharpConfig.cache)
+
+// Configurações de processamento de imagem otimizadas
 export const IMAGE_CONFIG = {
   // Tamanhos máximos para imagens originais
   MAX_WIDTH: 2048,
@@ -10,12 +16,16 @@ export const IMAGE_CONFIG = {
   THUMBNAIL_WIDTH: 300,
   THUMBNAIL_HEIGHT: 300,
   
-  // Qualidade de compressão
-  JPEG_QUALITY: 85,
-  WEBP_QUALITY: 80,
+  // Qualidade de compressão otimizada
+  JPEG_QUALITY: 82, // Reduzido para melhor performance
+  WEBP_QUALITY: 78, // Reduzido para melhor performance
   
   // Formatos suportados
   SUPPORTED_FORMATS: ['jpeg', 'jpg', 'png', 'webp'] as const,
+  
+  // Configurações de performance
+  SHARP_CONCURRENCY: 4, // Limitar concorrência do Sharp
+  SHARP_CACHE: true, // Habilitar cache
 }
 
 export type SupportedFormat = typeof IMAGE_CONFIG.SUPPORTED_FORMATS[number]
@@ -84,13 +94,15 @@ export async function processImage(
       throw new Error(`Imagem muito grande: ${(buffer.length / 1024 / 1024).toFixed(1)}MB. Máximo: 100MB`)
     }
 
-    // Criar instância do Sharp com configurações de memória
+    // Criar instância do Sharp com configurações otimizadas
     let image: sharp.Sharp
     try {
       image = sharp(buffer, {
         limitInputPixels: 268402689, // ~16384x16384 pixels
         sequentialRead: true,
-        density: 72
+        density: 72,
+        pages: 1, // Apenas primeira página para PDFs/GIFs
+        animated: false // Desabilitar animações para melhor performance
       })
     } catch (error) {
       console.error('Erro ao criar instância Sharp:', error)
@@ -128,22 +140,39 @@ export async function processImage(
     // Auto-rotacionar baseado no EXIF
     image = image.rotate()
     
-    // Aplicar formato e qualidade
+    // Aplicar formato e qualidade otimizados
     switch (format) {
       case 'jpeg':
-        image = image.jpeg({ quality, mozjpeg: true, progressive: true })
+        image = image.jpeg({ 
+          quality, 
+          mozjpeg: true, 
+          progressive: true,
+          optimiseScans: true, // Otimizar scans
+          trellisQuantisation: true // Melhor compressão
+        })
         break
       case 'webp':
-        image = image.webp({ quality: IMAGE_CONFIG.WEBP_QUALITY, effort: 6 })
+        image = image.webp({ 
+          quality: IMAGE_CONFIG.WEBP_QUALITY, 
+          effort: 4, // Reduzido para melhor performance
+          smartSubsample: true // Melhor qualidade/tamanho
+        })
         break
       case 'png':
-        image = image.png({ compressionLevel: 9, progressive: true })
+        image = image.png({ 
+          compressionLevel: 6, // Reduzido para melhor performance
+          progressive: true,
+          adaptiveFiltering: true // Melhor compressão
+        })
         break
     }
     
     let processedBuffer: Buffer
     try {
-      processedBuffer = await image.toBuffer()
+      // Usar toBuffer com configurações otimizadas e timeout
+      processedBuffer = await image
+        .timeout({ seconds: 30 }) // Timeout para evitar travamentos
+        .toBuffer({ resolveWithObject: false })
       console.log(`Imagem processada: ${processedBuffer.length} bytes`)
     } catch (error) {
       console.error('Erro no processamento Sharp:', error)
@@ -163,6 +192,11 @@ export async function processImage(
       }
       
       throw new Error('Erro durante o processamento da imagem')
+    } finally {
+      // Limpar cache do Sharp para liberar memória
+      if (typeof image.destroy === 'function') {
+        image.destroy()
+      }
     }
     
     const processedMetadata = await getImageMetadata(processedBuffer)

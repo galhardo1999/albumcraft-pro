@@ -29,6 +29,14 @@ export default function CreateBatchAlbumsPage() {
   const [sessionId] = useState(() => `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`)
   const [createdAlbums, setCreatedAlbums] = useState<string[]>([])
   const [errors, setErrors] = useState<string[]>([])
+  
+  // Estados para barra de progresso
+  const [isCreatingMultiple, setIsCreatingMultiple] = useState(false)
+  const [progress, setProgress] = useState(0)
+  const [currentAlbum, setCurrentAlbum] = useState('')
+  const [totalAlbums, setTotalAlbums] = useState(0)
+  const [isPollingStatus, setIsPollingStatus] = useState(false)
+  const [queueProgress, setQueueProgress] = useState(0)
 
   // Função para obter estrutura de pastas
   const getFolderStructure = (): Map<string, File[]> => {
@@ -64,6 +72,41 @@ export default function CreateBatchAlbumsPage() {
     }
   }
 
+  // Função para fazer polling do status da fila
+  const pollQueueStatus = async (sessionId: string) => {
+    setIsPollingStatus(true)
+    
+    const pollInterval = setInterval(async () => {
+      try {
+        const response = await fetch(`/api/queue/status?sessionId=${sessionId}`)
+        const data = await response.json()
+        
+        if (data.success) {
+          setQueueProgress(data.progress)
+          
+          // Se o processamento estiver completo, parar o polling e redirecionar
+          if (data.isProcessingComplete) {
+            clearInterval(pollInterval)
+            setIsPollingStatus(false)
+            
+            // Mostrar mensagem de sucesso
+            setTimeout(() => {
+              router.push('/projects')
+            }, 2000)
+          }
+        }
+      } catch (error) {
+        console.error('Erro ao verificar status da fila:', error)
+      }
+    }, 2000) // Verificar a cada 2 segundos
+    
+    // Limpar o intervalo após 5 minutos (timeout de segurança)
+    setTimeout(() => {
+      clearInterval(pollInterval)
+      setIsPollingStatus(false)
+    }, 300000) // 5 minutos
+  }
+
   const handlePreview = () => {
     if (!eventName || folderStructure.size === 0) {
       alert('Preencha todos os campos obrigatórios')
@@ -90,13 +133,16 @@ export default function CreateBatchAlbumsPage() {
     }
 
     setIsUploading(true)
+    setIsCreatingMultiple(true)
     setCreatedAlbums([])
     setErrors([])
+    setProgress(0)
 
     try {
       const folders = Array.from(folderStructure.entries())
+      setTotalAlbums(folders.length)
       
-      // Preparar dados dos álbuns
+      // Preparar dados dos álbuns para envio em lote
       const albums = await Promise.all(
         folders.map(async ([folderName, files]) => {
           // Converter arquivos para Base64
@@ -121,13 +167,13 @@ export default function CreateBatchAlbumsPage() {
 
       console.log(`🚀 Enviando ${albums.length} álbuns para processamento`)
 
-      // Enviar para API com sistema de filas
+      // Enviar todos os álbuns para a fila de uma vez
       const response = await fetch('/api/projects/batch', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        credentials: 'include', // Incluir cookies na requisição
+        credentials: 'include',
         body: JSON.stringify({
           eventName,
           albums: albums,
@@ -143,14 +189,19 @@ export default function CreateBatchAlbumsPage() {
       const result = await response.json()
       
       if (result.useQueue) {
-        alert(`✅ ${albums.length} álbuns adicionados à fila de processamento!`)
+        // Iniciar polling do status da fila
+        pollQueueStatus(sessionId)
+        setCurrentAlbum('Processando uploads para S3...')
       } else {
-        alert(`✅ ${albums.length} álbuns processados com sucesso!\n\n⚠️ Sistema de filas não disponível, processamento foi síncrono.`)
+        // Fallback para processamento síncrono
+        setTimeout(() => {
+          router.push('/projects')
+        }, 2000)
       }
 
     } catch (error) {
       console.error('Erro geral:', error)
-      alert(`❌ Erro ao processar álbuns: ${error instanceof Error ? error.message : 'Erro desconhecido'}`)
+      setErrors(prev => [...prev, `Erro geral: ${error instanceof Error ? error.message : 'Erro desconhecido'}`])
     } finally {
       setIsUploading(false)
     }
@@ -312,6 +363,63 @@ export default function CreateBatchAlbumsPage() {
             </Card>
           )}
 
+          {/* Barra de Progresso */}
+          {(isCreatingMultiple || isPollingStatus) && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Criando Múltiplos Álbuns</CardTitle>
+                <CardDescription>
+                  {isPollingStatus 
+                    ? 'Fazendo upload das fotos para o S3...' 
+                    : 'Aguarde enquanto os álbuns são criados...'
+                  }
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="flex justify-between text-sm">
+                    <span>Progresso: {isPollingStatus ? queueProgress : progress}%</span>
+                    <span>
+                      {isPollingStatus 
+                        ? `Upload para S3 em andamento...`
+                        : `${createdAlbums.length} de ${totalAlbums} álbuns criados`
+                      }
+                    </span>
+                  </div>
+                  
+                  <div className="w-full bg-gray-200 rounded-full h-3">
+                    <div 
+                      className="bg-gradient-to-r from-blue-500 to-purple-600 h-3 rounded-full transition-all duration-500 ease-out"
+                      style={{ width: `${isPollingStatus ? queueProgress : progress}%` }}
+                    />
+                  </div>
+                  
+                  {currentAlbum && (
+                    <div className="text-center">
+                      <p className="text-sm text-gray-600">
+                        {isPollingStatus 
+                          ? <span className="font-medium">{currentAlbum}</span>
+                          : <>Criando álbum: <span className="font-medium">{currentAlbum}</span></>
+                        }
+                      </p>
+                    </div>
+                  )}
+                  
+                  {((progress === 100 && !isPollingStatus) || (queueProgress === 100 && isPollingStatus)) && (
+                    <div className="text-center">
+                      <p className="text-green-600 font-medium">
+                        ✅ Todos os álbuns foram criados e as fotos foram enviadas para o S3!
+                      </p>
+                      <p className="text-sm text-gray-500 mt-1">
+                        Redirecionando para "Meus Álbuns" em alguns segundos...
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Botões de Ação */}
           <div className="flex justify-between">
             <Button
@@ -333,13 +441,23 @@ export default function CreateBatchAlbumsPage() {
               </Button>
               <Button
                 onClick={handleCreateAlbums}
-                disabled={!eventName || folderStructure.size === 0 || isUploading}
+                disabled={!eventName || folderStructure.size === 0 || isUploading || isCreatingMultiple || isPollingStatus}
                 className="min-w-[200px]"
               >
-                {isUploading ? (
+                {isPollingStatus ? (
                   <div className="flex items-center space-x-2">
                     <Upload className="h-4 w-4 animate-spin" />
-                    <span>Criando Álbuns...</span>
+                    <span>Upload S3... ({queueProgress}%)</span>
+                  </div>
+                ) : isCreatingMultiple ? (
+                  <div className="flex items-center space-x-2">
+                    <Upload className="h-4 w-4 animate-spin" />
+                    <span>Criando Álbuns... ({progress}%)</span>
+                  </div>
+                ) : isUploading ? (
+                  <div className="flex items-center space-x-2">
+                    <Upload className="h-4 w-4 animate-spin" />
+                    <span>Processando...</span>
                   </div>
                 ) : (
                   `🚀 Criar ${folderStructure.size} Álbuns`

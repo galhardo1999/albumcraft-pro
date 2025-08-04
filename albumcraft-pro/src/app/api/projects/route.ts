@@ -18,6 +18,10 @@ export const GET = withAuth(async (request: NextRequest, user) => {
           pages: {
             select: { id: true }
           },
+          photos: {
+            select: { id: true, filename: true, thumbnailUrl: true },
+            take: 3
+          },
           _count: {
             select: { pages: true }
           }

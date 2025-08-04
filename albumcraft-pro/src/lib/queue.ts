@@ -31,13 +31,16 @@ interface AlbumJob {
   maxAttempts: number;
 }
 
-// Fila em memória simples (para desenvolvimento)
+import { performanceConfig } from './performance-config'
+
+// Fila em memória para processamento de álbuns
 class InMemoryQueue {
   private queue: AlbumJob[] = [];
-  private processing: Map<string, AlbumJob> = new Map();
+  private processing = new Map<string, AlbumJob>();
   private completed: AlbumJob[] = [];
   private failed: AlbumJob[] = [];
-  private isProcessing = false;
+  private maxConcurrency = performanceConfig.albumConcurrency; // Configuração dinâmica
+  private photosConcurrency = performanceConfig.photosConcurrency; // Configuração dinâmica
 
   async add(jobData: AlbumCreationJobData, priority: number = 0): Promise<{ id: string; status: string }> {
     const job: AlbumJob = {
@@ -56,29 +59,32 @@ class InMemoryQueue {
     
     console.log(`📋 Job ${job.id} adicionado à fila`);
     
-    // Processar imediatamente se possível
-    this.processNext().catch(console.error);
+    // Processar jobs automaticamente
+    this.processJobs().catch(console.error);
     
     return { id: job.id, status: 'queued' };
   }
 
-  private async processNext(): Promise<void> {
-    if (this.isProcessing || this.queue.length === 0) return;
-    
-    this.isProcessing = true;
-    const job = this.queue.shift();
-    
-    if (!job) {
-      this.isProcessing = false;
-      return;
-    }
+  private isProcessing = false;
 
+  private async processJobs(): Promise<void> {
+    // Verificar se podemos processar mais jobs
+    while (this.processing.size < this.maxConcurrency && this.queue.length > 0) {
+      const job = this.queue.shift();
+      if (!job) break;
+
+      // Processar job em paralelo
+      this.processJob(job).catch(console.error);
+    }
+  }
+
+  private async processJob(job: AlbumJob): Promise<void> {
     try {
       // Marcar como processando
       job.status = 'processing';
       this.processing.set(job.id, job);
       
-      console.log(`🔄 Processando job: ${job.id} - Álbum: ${job.data.albumName}`);
+      console.log(`🔄 Processando job: ${job.id} - Álbum: ${job.data.albumName} (${this.processing.size}/${this.maxConcurrency})`);
       
       await this.processAlbum(job.data);
       
@@ -107,17 +113,21 @@ class InMemoryQueue {
         console.log(`❌ Job ${job.id} falhou após ${job.maxAttempts} tentativas`);
       }
     } finally {
-      this.isProcessing = false;
-      
-      // Processar próximo job se houver
+      // Processar próximos jobs se houver
       if (this.queue.length > 0) {
-        setTimeout(() => this.processNext(), 100);
+        setTimeout(() => this.processJobs(), 100);
       }
     }
   }
 
   private async processAlbum(data: AlbumCreationJobData): Promise<void> {
+    const startTime = Date.now()
     const { userId, eventName, albumName, files, sessionId } = data;
+
+    console.log(`\n🎯 Iniciando processamento do álbum: ${albumName}`)
+    console.log(`📁 Total de arquivos: ${files.length}`)
+    console.log(`🔗 Session ID: ${sessionId}`)
+    console.log(`⚡ Concorrência: ${this.photosConcurrency} fotos simultâneas`)
 
     try {
       // Importar dependências necessárias
@@ -142,46 +152,47 @@ class InMemoryQueue {
       console.log(`✅ Projeto criado: ${project.id} - ${albumName}`);
       console.log('Álbum criado com sucesso!');
 
-      // 2. Processar fotos usando a mesma lógica do sistema individual
+      // 2. Processar fotos em paralelo usando a mesma lógica do sistema individual
       const { uploadToS3, generateS3Key, generateThumbnailKey, isS3Configured } = await import('./s3');
       const { processImage, createThumbnail, getImageMetadata, isValidImageFormat, isValidFileSize, sanitizeFileName } = await import('./image-processing');
       
       const totalFiles = files.length;
-      let uploadedCount = 0;
       const errors: string[] = [];
 
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        const progress = 20 + Math.floor((i / totalFiles) * 70); // 20% a 90%
-        
-        console.log(`Processando foto ${i + 1}/${totalFiles}: ${file.name}`);
+      console.log(`🚀 Processando ${totalFiles} fotos em paralelo (concorrência: ${this.photosConcurrency})`);
 
+      // Função para processar uma única foto
+      const processPhoto = async (file: any, index: number) => {
         try {
-          // Usar a mesma lógica da API /api/photos, mas diretamente (sem HTTP)
-          console.log(`\n--- Processando arquivo ${i + 1}/${totalFiles}: ${file.name} ---`);
-          console.log(`📋 Tipo: ${file.type}, Tamanho: ${file.buffer.length} bytes`);
-          
-          // Validar tipo de arquivo (igual ao sistema individual)
-          if (!isValidImageFormat(file.type)) {
-            console.log(`❌ Formato não suportado: ${file.type}`);
-            errors.push(`${file.name}: Formato não suportado`);
-            continue;
+          // Verificar memória disponível
+          const estimatedMemoryUsage = file.buffer.length * 3 // Estimativa: 3x o tamanho do arquivo
+          if (!performanceConfig.hasEnoughMemory(estimatedMemoryUsage)) {
+            console.warn('⚠️ Memória insuficiente, aguardando...')
+            await new Promise(resolve => setTimeout(resolve, 1000)) // Aguardar 1 segundo
           }
 
-          // Validar tamanho do arquivo (igual ao sistema individual)
+          console.log(`\n--- Processando arquivo ${index + 1}/${totalFiles}: ${file.name} ---`);
+          console.log(`📋 Tipo: ${file.type}, Tamanho: ${file.buffer.length} bytes`);
+          
+          // Validar tipo de arquivo
+          if (!isValidImageFormat(file.type)) {
+            console.log(`❌ Formato não suportado: ${file.type}`);
+            return { error: `${file.name}: Formato não suportado` };
+          }
+
+          // Validar tamanho do arquivo
           if (!isValidFileSize(file.buffer.length)) {
             console.log(`❌ Arquivo muito grande: ${file.buffer.length} bytes`);
-            errors.push(`${file.name}: Arquivo muito grande (máximo 50MB)`);
-            continue;
+            return { error: `${file.name}: Arquivo muito grande (máximo 50MB)` };
           }
 
           console.log(`✅ Validações passaram, processando imagem...`);
           
-          // Obter metadados originais (igual ao sistema individual)
+          // Obter metadados originais
           const originalMetadata = await getImageMetadata(file.buffer);
           console.log(`✅ Metadados obtidos: ${originalMetadata.width}x${originalMetadata.height}`);
           
-          // Sanitizar nome do arquivo (igual ao sistema individual)
+          // Sanitizar nome do arquivo
           const sanitizedFileName = sanitizeFileName(file.name);
           console.log(`🧹 Nome sanitizado: ${sanitizedFileName}`);
 
@@ -191,25 +202,15 @@ class InMemoryQueue {
           let s3Key: string | null = null;
 
           if (isS3Configured()) {
-            // **UPLOAD PARA S3** (igual ao sistema individual)
+            // **UPLOAD PARA S3** - Processamento paralelo das 3 versões
             console.log(`☁️ Fazendo upload para S3: ${file.name}`);
             
-            // Processar imagem original
-            const processedImage = await processImage(file.buffer, {
-              format: 'jpeg',
-              quality: 85
-            });
-            
-            // Criar thumbnail
-            const thumbnail = await createThumbnail(file.buffer);
-            
-            // Criar versão média
-            const mediumImage = await processImage(file.buffer, {
-              maxWidth: 800,
-              maxHeight: 800,
-              format: 'jpeg',
-              quality: 80
-            });
+            // Processar todas as versões em paralelo
+            const [processedImage, thumbnail, mediumImage] = await Promise.all([
+              processImage(file.buffer, { format: 'jpeg', quality: 85 }),
+              createThumbnail(file.buffer),
+              processImage(file.buffer, { maxWidth: 800, maxHeight: 800, format: 'jpeg', quality: 80 })
+            ]);
             
             // Gerar chaves S3
             const originalKey = generateS3Key(userId, sanitizedFileName, project.id);
@@ -217,53 +218,35 @@ class InMemoryQueue {
             const mediumKey = originalKey.replace(/(\.[^.]+)$/, '_medium$1');
             s3Key = originalKey;
             
-            // Upload para S3
-            originalUrl = await uploadToS3(
-              processedImage.buffer,
-              originalKey,
-              processedImage.contentType
-            );
+            // Upload para S3 em paralelo
+            const [originalUpload, thumbnailUpload, mediumUpload] = await Promise.all([
+              uploadToS3(processedImage.buffer, originalKey, processedImage.contentType),
+              uploadToS3(thumbnail.buffer, thumbnailKey, thumbnail.contentType),
+              uploadToS3(mediumImage.buffer, mediumKey, mediumImage.contentType)
+            ]);
             
-            thumbnailUrl = await uploadToS3(
-              thumbnail.buffer,
-              thumbnailKey,
-              thumbnail.contentType
-            );
-            
-            mediumUrl = await uploadToS3(
-              mediumImage.buffer,
-              mediumKey,
-              mediumImage.contentType
-            );
+            originalUrl = originalUpload;
+            thumbnailUrl = thumbnailUpload;
+            mediumUrl = mediumUpload;
             
             console.log(`✅ Upload S3 concluído: ${file.name}`);
             
           } else {
-            // **FALLBACK BASE64** (igual ao sistema individual)
+            // **FALLBACK BASE64** - Processamento paralelo das 3 versões
             console.log(`💾 S3 não configurado, usando Base64: ${file.name}`);
             
-            const processedImage = await processImage(file.buffer, {
-              maxWidth: 1200,
-              maxHeight: 1200,
-              format: 'jpeg',
-              quality: 80
-            });
-            
-            const thumbnail = await createThumbnail(file.buffer);
-            
-            const mediumImage = await processImage(file.buffer, {
-              maxWidth: 800,
-              maxHeight: 800,
-              format: 'jpeg',
-              quality: 75
-            });
+            const [processedImage, thumbnail, mediumImage] = await Promise.all([
+              processImage(file.buffer, { maxWidth: 1200, maxHeight: 1200, format: 'jpeg', quality: 80 }),
+              createThumbnail(file.buffer),
+              processImage(file.buffer, { maxWidth: 800, maxHeight: 800, format: 'jpeg', quality: 75 })
+            ]);
             
             originalUrl = `data:${processedImage.contentType};base64,${processedImage.buffer.toString('base64')}`;
             thumbnailUrl = `data:${thumbnail.contentType};base64,${thumbnail.buffer.toString('base64')}`;
             mediumUrl = `data:${mediumImage.contentType};base64,${mediumImage.buffer.toString('base64')}`;
           }
 
-          // **SALVAR FOTO NO BANCO DE DADOS** (igual ao sistema individual)
+          // **SALVAR FOTO NO BANCO DE DADOS**
           const photo = await prisma.photo.create({
             data: {
               userId,
@@ -283,14 +266,33 @@ class InMemoryQueue {
             }
           });
 
-          uploadedCount++;
           console.log(`✅ Foto salva no banco: ${photo.id} - ${file.name}`);
+          return { success: true, photo };
 
         } catch (fileError) {
           console.error(`❌ Erro ao processar arquivo ${file.name}:`, fileError);
-          errors.push(`Erro na foto ${file.name}: ${fileError instanceof Error ? fileError.message : 'Erro desconhecido'}`);
+          return { error: `Erro na foto ${file.name}: ${fileError instanceof Error ? fileError.message : 'Erro desconhecido'}` };
         }
+      };
+
+      // Processar fotos em lotes paralelos
+      const results = [];
+      for (let i = 0; i < files.length; i += this.photosConcurrency) {
+        const batch = files.slice(i, i + this.photosConcurrency);
+        const batchPromises = batch.map((file, batchIndex) => 
+          processPhoto(file, i + batchIndex)
+        );
+        
+        const batchResults = await Promise.all(batchPromises);
+        results.push(...batchResults);
+        
+        console.log(`📊 Lote ${Math.floor(i / this.photosConcurrency) + 1} processado: ${batchResults.length} fotos`);
       }
+
+      // Contar sucessos e erros
+       const uploadedCount = results.filter(r => r.success).length;
+       const batchErrors = results.filter(r => r.error).map(r => r.error!);
+       errors.push(...batchErrors);
 
       // 3. Finalizar o projeto (igual ao sistema individual)
       console.log('Finalizando álbum...');
@@ -309,7 +311,13 @@ class InMemoryQueue {
 
       console.log(successMessage);
       
+      const endTime = Date.now()
+      const processingTime = (endTime - startTime) / 1000
+      const photosPerSecond = files.length / processingTime
+      
       console.log(`🎉 Álbum processado: ${albumName}`);
+      console.log(`⏱️ Tempo total: ${processingTime.toFixed(2)}s`);
+      console.log(`🚀 Velocidade: ${photosPerSecond.toFixed(2)} fotos/segundo`);
       console.log(`📊 Estatísticas:`);
       console.log(`   - Projeto ID: ${project.id}`);
       console.log(`   - Fotos processadas: ${uploadedCount}/${totalFiles}`);
@@ -334,6 +342,29 @@ class InMemoryQueue {
       active: this.processing.size,
       completed: this.completed.length,
       failed: this.failed.length,
+    };
+  }
+
+  // Obter estatísticas por sessionId
+  async getStatsBySession(sessionId: string): Promise<QueueStats & { totalJobs: number }> {
+    const allJobs = [
+      ...this.queue,
+      ...Array.from(this.processing.values()),
+      ...this.completed,
+      ...this.failed
+    ].filter(job => job.data.sessionId === sessionId);
+
+    const waiting = this.queue.filter(job => job.data.sessionId === sessionId).length;
+    const active = Array.from(this.processing.values()).filter(job => job.data.sessionId === sessionId).length;
+    const completed = this.completed.filter(job => job.data.sessionId === sessionId).length;
+    const failed = this.failed.filter(job => job.data.sessionId === sessionId).length;
+
+    return {
+      waiting,
+      active,
+      completed,
+      failed,
+      totalJobs: allJobs.length
     };
   }
 
@@ -407,6 +438,22 @@ export const getQueueStats = async (): Promise<QueueStats> => {
       active: 0,
       completed: 0,
       failed: 0
+    }
+  }
+}
+
+// Obter estatísticas por sessionId
+export const getQueueStatsBySession = async (sessionId: string): Promise<QueueStats & { totalJobs: number }> => {
+  try {
+    return await albumQueue.getStatsBySession(sessionId);
+  } catch (error) {
+    console.error('❌ Erro ao obter estatísticas da fila por sessionId:', error)
+    return {
+      waiting: 0,
+      active: 0,
+      completed: 0,
+      failed: 0,
+      totalJobs: 0
     }
   }
 }
