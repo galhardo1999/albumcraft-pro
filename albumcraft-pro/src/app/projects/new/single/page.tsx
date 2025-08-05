@@ -7,21 +7,11 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import Image from 'next/image'
 
-import { ALBUM_SIZES, getPopularSizes, getSizesByCategory, formatSizeDisplay, AlbumSizeConfig } from '@/lib/album-sizes'
+import { ALBUM_SIZES, formatSizeDisplay, AlbumSizeConfig } from '@/lib/album-sizes'
 
 interface FormData {
   name: string
   albumSize: string
-}
-
-interface Photo {
-  id: string
-  url: string
-  name: string
-  width: number
-  height: number
-  fileSize: number
-  projectId?: string | null // Incluir projectId
 }
 
 // Nova interface para fotos temporárias (apenas em memória)
@@ -36,89 +26,29 @@ interface TempPhoto {
   isTemp: true
 }
 
-// Interface unificada para fotos (persistidas ou temporárias)
-type PhotoItem = Photo | TempPhoto
+// Interface unificada para fotos (apenas temporárias agora)
+type PhotoItem = TempPhoto
 
 export default function SingleAlbumPage() {
   const router = useRouter()
   const [formData, setFormData] = useState<FormData>({
     name: '',
-    albumSize: 'SIZE_20X20' // Padrão para formato quadrado popular
+    albumSize: 'SIZE_30X20' // Padrão para 30x20
   })
-  const [photos, setPhotos] = useState<PhotoItem[]>([]) // Agora suporta fotos temporárias
-  const [existingPhotos, setExistingPhotos] = useState<Photo[]>([])
-  const [selectedExistingPhotos, setSelectedExistingPhotos] = useState<Set<string>>(new Set())
-  const [showExistingPhotos, setShowExistingPhotos] = useState(false)
+  const [photos, setPhotos] = useState<PhotoItem[]>([]) // Agora suporta apenas fotos temporárias
   const [isLoading, setIsLoading] = useState(false)
-  const [isLoadingExisting, setIsLoadingExisting] = useState(false)
   const [error, setError] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const [selectedCategory, setSelectedCategory] = useState<'popular' | 'square' | 'landscape' | 'portrait'>('popular')
 
-  // Obter tamanhos baseado na categoria selecionada
+  // Obter apenas os tamanhos específicos solicitados
   const getAlbumSizes = (): AlbumSizeConfig[] => {
-    switch (selectedCategory) {
-      case 'popular':
-        return getPopularSizes()
-      case 'square':
-        return getSizesByCategory('square')
-      case 'landscape':
-        return getSizesByCategory('landscape')
-      case 'portrait':
-        return getSizesByCategory('portrait')
-      default:
-        return getPopularSizes()
-    }
+    return ALBUM_SIZES.filter(size => 
+      size.id === 'SIZE_30X20' || size.id === 'SIZE_20X30'
+    )
   }
 
   const handleInputChange = (field: keyof FormData, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }))
-  }
-
-  // Carregar fotos existentes do usuário (sem projectId para pegar todas)
-  const loadExistingPhotos = async () => {
-    try {
-      setIsLoadingExisting(true)
-      const response = await fetch('/api/photos', {
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      })
-      
-      if (!response.ok) {
-        throw new Error('Erro ao carregar fotos existentes')
-      }
-      
-      const result = await response.json()
-      
-      if (result.success && result.data) {
-        // Filtrar apenas fotos que não estão associadas a nenhum projeto
-        const unassignedPhotos = result.data.filter((photo: Photo) => !photo.projectId)
-        setExistingPhotos(unassignedPhotos)
-      }
-    } catch (error) {
-      console.error('Erro ao carregar fotos existentes:', error)
-    } finally {
-      setIsLoadingExisting(false)
-    }
-  }
-
-  // Carregar fotos existentes quando o componente montar
-  useEffect(() => {
-    loadExistingPhotos()
-  }, [])
-
-  const toggleExistingPhoto = (photoId: string) => {
-    setSelectedExistingPhotos(prev => {
-      const newSet = new Set(prev)
-      if (newSet.has(photoId)) {
-        newSet.delete(photoId)
-      } else {
-        newSet.add(photoId)
-      }
-      return newSet
-    })
   }
 
   // Função para remover foto da lista
@@ -127,7 +57,7 @@ export default function SingleAlbumPage() {
       const photoToRemove = prev.find(p => p.id === photoId)
       
       // Se for uma foto temporária, limpar a URL para evitar memory leak
-      if (photoToRemove && 'isTemp' in photoToRemove && photoToRemove.isTemp) {
+      if (photoToRemove && photoToRemove.isTemp) {
         URL.revokeObjectURL(photoToRemove.url)
       }
       
@@ -139,21 +69,12 @@ export default function SingleAlbumPage() {
   useEffect(() => {
     return () => {
       photos.forEach(photo => {
-        if ('isTemp' in photo && photo.isTemp) {
+        if (photo.isTemp) {
           URL.revokeObjectURL(photo.url)
         }
       })
     }
   }, [photos])
-
-  const addSelectedPhotosToAlbum = () => {
-    const selectedPhotos = existingPhotos.filter(photo => 
-      selectedExistingPhotos.has(photo.id)
-    )
-    setPhotos(prev => [...prev, ...selectedPhotos])
-    setSelectedExistingPhotos(new Set())
-    setShowExistingPhotos(false)
-  }
 
   const handleImportClick = () => {
     fileInputRef.current?.click()
@@ -270,43 +191,27 @@ export default function SingleAlbumPage() {
       const data = await response.json()
       const projectId = data.project.id
 
-      // 2. Fazer upload das fotos temporárias e associar fotos existentes ao projeto
+      // 2. Fazer upload das fotos temporárias
       if (photos.length > 0) {
         try {
           const uploadPromises: Promise<Response>[] = []
 
           for (const photo of photos) {
-            if ('isTemp' in photo && photo.isTemp) {
-              // É uma foto temporária - fazer upload
-              const formData = new FormData()
-              formData.append('files', photo.file)
-              formData.append('projectId', projectId) // Associar diretamente ao projeto
+            // Fazer upload da foto temporária
+            const formData = new FormData()
+            formData.append('files', photo.file)
+            formData.append('projectId', projectId) // Associar diretamente ao projeto
 
-              const uploadPromise = fetch('/api/photos', {
-                method: 'POST',
-                body: formData,
-                credentials: 'include'
-              })
+            const uploadPromise = fetch('/api/photos', {
+              method: 'POST',
+              body: formData,
+              credentials: 'include'
+            })
 
-              uploadPromises.push(uploadPromise)
-            } else {
-              // É uma foto existente - apenas associar ao projeto
-              const updatePromise = fetch(`/api/photos/${photo.id}`, {
-                method: 'PATCH',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-                credentials: 'include',
-                body: JSON.stringify({
-                  projectId: projectId
-                })
-              })
-
-              uploadPromises.push(updatePromise)
-            }
+            uploadPromises.push(uploadPromise)
           }
 
-          // Executar todos os uploads/updates em paralelo
+          // Executar todos os uploads em paralelo
           const results = await Promise.allSettled(uploadPromises)
           
           // Verificar resultados e capturar erros
@@ -334,7 +239,7 @@ export default function SingleAlbumPage() {
 
           // Limpar URLs temporárias para evitar memory leaks
           photos.forEach(photo => {
-            if ('isTemp' in photo && photo.isTemp) {
+            if (photo.isTemp) {
               URL.revokeObjectURL(photo.url)
             }
           })
@@ -476,31 +381,6 @@ export default function SingleAlbumPage() {
                   Tamanho do Álbum *
                 </label>
                 
-                {/* Categorias de Tamanho */}
-                <div className="mb-4">
-                  <div className="flex flex-wrap gap-2">
-                    {[
-                      { key: 'popular', label: 'Populares' },
-                      { key: 'square', label: 'Quadrados' },
-                      { key: 'landscape', label: 'Paisagem' },
-                      { key: 'portrait', label: 'Retrato' }
-                    ].map((category) => (
-                      <button
-                        key={category.key}
-                        type="button"
-                        onClick={() => setSelectedCategory(category.key as 'square' | 'landscape' | 'portrait' | 'popular')}
-                        className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
-                          selectedCategory === category.key
-                            ? 'bg-primary text-primary-foreground'
-                            : 'bg-muted text-muted-foreground hover:bg-muted/80'
-                        }`}
-                      >
-                        {category.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {getAlbumSizes().map((size) => (
                     <div
@@ -523,18 +403,7 @@ export default function SingleAlbumPage() {
                           )}
                         </div>
                         <div className="flex-1">
-                          <div className="flex items-center justify-between">
-                            <h3 className="font-semibold">{formatSizeDisplay(size)}</h3>
-                            <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded">
-                              {size.category}
-                            </span>
-                          </div>
-                          <p className="text-sm text-muted-foreground">{size.description}</p>
-                          {size.isPopular && (
-                            <span className="inline-block mt-1 text-xs bg-orange-100 text-orange-800 px-2 py-0.5 rounded-full">
-                              Popular
-                            </span>
-                          )}
+                          <h3 className="font-semibold">{size.displayName}</h3>
                         </div>
                       </div>
                     </div>
@@ -548,35 +417,8 @@ export default function SingleAlbumPage() {
                   Upload de Fotos
                 </label>
                 
-                {/* Botões de Upload */}
-                <div className="mb-4 flex flex-col sm:flex-row gap-3">
-                  <Button 
-                    type="button"
-                    variant="outline" 
-                    onClick={handleImportClick}
-                    className="flex-1"
-                  >
-                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                    </svg>
-                    Fazer Upload
-                  </Button>
-                  
-                  <Button 
-                    type="button"
-                    variant="outline" 
-                    onClick={() => setShowExistingPhotos(true)}
-                    disabled={isLoadingExisting}
-                    className="flex-1"
-                  >
-                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                    </svg>
-                    {isLoadingExisting ? 'Carregando...' : `Fotos Existentes (${existingPhotos.length})`}
-                  </Button>
-                </div>
                 <p className="text-xs text-muted-foreground mb-4">
-                  Formatos aceitos: JPG, PNG. As fotos marcadas como &quot;Temp&quot; serão salvas apenas quando você criar o álbum.
+                  Formatos aceitos: JPG, PNG. As fotos serão salvas quando você criar o álbum.
                 </p>
 
                 {/* Lista de Fotos Carregadas */}
@@ -610,19 +452,6 @@ export default function SingleAlbumPage() {
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                               </svg>
                             </button>
-                            
-                            {/* Indicador de status */}
-                            <div className="absolute top-1 left-1">
-                              {'isTemp' in photo && photo.isTemp ? (
-                                <span className="bg-yellow-500 text-white text-xs px-1.5 py-0.5 rounded-full font-medium">
-                                  Temp
-                                </span>
-                              ) : (
-                                <span className="bg-green-500 text-white text-xs px-1.5 py-0.5 rounded-full font-medium">
-                                  Salva
-                                </span>
-                              )}
-                            </div>
                           </div>
                           <div className="mt-1">
                             <p className="text-xs font-medium truncate" title={photo.name}>
@@ -643,9 +472,12 @@ export default function SingleAlbumPage() {
                   </div>
                 )}
 
-                {/* Estado vazio */}
+                {/* Estado vazio - Área clicável */}
                 {photos.length === 0 && (
-                  <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-8 text-center">
+                  <div 
+                    className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-8 text-center cursor-pointer hover:border-primary/50 hover:bg-muted/20 transition-colors"
+                    onClick={handleImportClick}
+                  >
                     <div className="w-12 h-12 mx-auto mb-4 bg-muted rounded-lg flex items-center justify-center">
                       <svg className="w-6 h-6 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -655,7 +487,7 @@ export default function SingleAlbumPage() {
                       Nenhuma foto selecionada
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      Clique em &quot;Fazer Upload&quot; ou &quot;Fotos Existentes&quot; para adicionar imagens ao seu álbum
+                      Clique aqui para adicionar imagens ao seu álbum
                     </p>
                   </div>
                 )}
@@ -700,126 +532,6 @@ export default function SingleAlbumPage() {
           onChange={handleFileChange}
           className="hidden"
         />
-
-        {/* Modal de Fotos Existentes */}
-        {showExistingPhotos && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-background rounded-xl max-w-4xl w-full max-h-[80vh] overflow-hidden">
-              <div className="p-6 border-b">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-semibold">Selecionar Fotos Existentes</h3>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      setShowExistingPhotos(false)
-                      setSelectedExistingPhotos(new Set())
-                    }}
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </Button>
-                </div>
-                <p className="text-sm text-muted-foreground mt-2">
-                  Selecione fotos que não estão associadas a nenhum projeto para adicionar ao seu álbum.
-                </p>
-              </div>
-              
-              <div className="p-6 overflow-y-auto max-h-[50vh]">
-                {existingPhotos.length > 0 ? (
-                  <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                    {existingPhotos.map((photo) => (
-                      <div
-                        key={photo.id}
-                        className={`relative cursor-pointer rounded-lg overflow-hidden border-2 transition-colors ${
-                          selectedExistingPhotos.has(photo.id)
-                            ? 'border-primary bg-primary/10'
-                            : 'border-border hover:border-primary/50'
-                        }`}
-                        onClick={() => toggleExistingPhoto(photo.id)}
-                      >
-                        <div className="aspect-square">
-                          <Image
-                            src={photo.url}
-                            alt={photo.name}
-                            width={120}
-                            height={120}
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
-                        
-                        {/* Checkbox overlay */}
-                        <div className="absolute top-2 right-2">
-                          <div className={`w-5 h-5 rounded border-2 flex items-center justify-center ${
-                            selectedExistingPhotos.has(photo.id)
-                              ? 'bg-primary border-primary'
-                              : 'bg-background border-border'
-                          }`}>
-                            {selectedExistingPhotos.has(photo.id) && (
-                              <svg className="w-3 h-3 text-primary-foreground" fill="currentColor" viewBox="0 0 20 20">
-                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                              </svg>
-                            )}
-                          </div>
-                        </div>
-                        
-                        <div className="absolute bottom-0 left-0 right-0 bg-black/70 text-white p-2">
-                          <p className="text-xs font-medium truncate" title={photo.name}>
-                            {photo.name}
-                          </p>
-                          <div className="flex justify-between items-center text-xs opacity-75">
-                            <span>{photo.width}×{photo.height}</span>
-                            <span>{formatFileSize(photo.fileSize)}</span>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-12">
-                    <div className="w-16 h-16 mx-auto mb-4 bg-muted rounded-lg flex items-center justify-center">
-                      <svg className="w-8 h-8 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                      </svg>
-                    </div>
-                    <p className="text-muted-foreground">
-                      Nenhuma foto disponível para seleção
-                    </p>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      Todas as suas fotos já estão associadas a projetos ou você ainda não fez upload de nenhuma foto.
-                    </p>
-                  </div>
-                )}
-              </div>
-              
-              <div className="p-6 border-t bg-muted/30">
-                <div className="flex items-center justify-between">
-                  <p className="text-sm text-muted-foreground">
-                    {selectedExistingPhotos.size} foto(s) selecionada(s)
-                  </p>
-                  <div className="flex gap-3">
-                    <Button
-                      variant="ghost"
-                      onClick={() => {
-                        setShowExistingPhotos(false)
-                        setSelectedExistingPhotos(new Set())
-                      }}
-                    >
-                      Cancelar
-                    </Button>
-                    <Button
-                      onClick={addSelectedPhotosToAlbum}
-                      disabled={selectedExistingPhotos.size === 0}
-                    >
-                      Adicionar {selectedExistingPhotos.size > 0 ? `(${selectedExistingPhotos.size})` : ''}
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
       </main>
     </div>
   )

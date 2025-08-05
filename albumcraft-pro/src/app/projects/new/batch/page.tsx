@@ -8,12 +8,14 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Upload, FolderOpen, AlertCircle, CheckCircle2 } from 'lucide-react'
 import { motion } from 'framer-motion'
+import { ALBUM_SIZES, type AlbumSizeConfig } from '@/lib/album-sizes'
 
 
 
 export default function CreateBatchAlbumsPage() {
   const router = useRouter()
   const [eventName, setEventName] = useState('')
+  const [selectedAlbumSize, setSelectedAlbumSize] = useState<string>('SIZE_30X20')
   const [applyToAll, setApplyToAll] = useState(true)
   const [folders, setFolders] = useState<FileList | null>(null)
   const [isUploading, setIsUploading] = useState(false)
@@ -108,7 +110,7 @@ export default function CreateBatchAlbumsPage() {
   }
 
   const handlePreview = () => {
-    if (!eventName || folderStructure.size === 0) {
+    if (!eventName || !selectedAlbumSize || folderStructure.size === 0) {
       alert('Preencha todos os campos obrigatórios')
       return
     }
@@ -127,7 +129,7 @@ export default function CreateBatchAlbumsPage() {
   }
 
   const handleCreateAlbums = async () => {
-    if (!eventName || folderStructure.size === 0) {
+    if (!eventName || !selectedAlbumSize || folderStructure.size === 0) {
       alert('Preencha todos os campos obrigatórios')
       return
     }
@@ -176,6 +178,7 @@ export default function CreateBatchAlbumsPage() {
         credentials: 'include',
         body: JSON.stringify({
           eventName,
+          albumSize: selectedAlbumSize,
           albums: albums,
           sessionId
         }),
@@ -244,6 +247,46 @@ export default function CreateBatchAlbumsPage() {
                 />
               </div>
 
+              {/* Tamanho do Álbum */}
+              <div>
+                <Label htmlFor="albumSize">Tamanho do Álbum *</Label>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
+                  {/* Filtrar apenas os tamanhos 30x20 e 20x30 */}
+                  {ALBUM_SIZES.filter(size => size.id === 'SIZE_30X20' || size.id === 'SIZE_20X30').map((size) => (
+                    <div
+                      key={size.id}
+                      onClick={() => setSelectedAlbumSize(size.id)}
+                      className={`
+                        relative p-4 border-2 rounded-lg cursor-pointer transition-all duration-200
+                        ${selectedAlbumSize === size.id 
+                          ? 'border-primary bg-primary/5 shadow-md' 
+                          : 'border-gray-200 hover:border-primary/50 hover:bg-gray-50'
+                        }
+                      `}
+                    >
+                      <div className="flex items-center space-x-3">
+                        <div className={`
+                          w-5 h-5 rounded-full border-2 flex items-center justify-center
+                          ${selectedAlbumSize === size.id 
+                            ? 'border-primary bg-primary' 
+                            : 'border-gray-300'
+                          }
+                        `}>
+                          {selectedAlbumSize === size.id && (
+                            <div className="w-2 h-2 bg-white rounded-full" />
+                          )}
+                        </div>
+                        <div>
+                          <div className="font-medium text-gray-900">
+                            {size.displayName}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
               <div className="flex items-center space-x-2">
                 <input
                   type="checkbox"
@@ -268,17 +311,18 @@ export default function CreateBatchAlbumsPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+              <div 
+                onClick={() => document.getElementById('folder-upload')?.click()}
+                className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer hover:border-primary/50 hover:bg-muted/20 transition-colors"
+              >
                 <FolderOpen className="mx-auto h-12 w-12 text-gray-400 mb-4" />
                 <div className="mb-4">
-                  <Label htmlFor="folder-upload" className="cursor-pointer">
-                    <span className="text-lg font-medium text-gray-900">
-                      Clique para selecionar pasta
-                    </span>
-                    <p className="text-sm text-gray-500 mt-1">
-                      Selecione a pasta que contém as subpastas com fotos
-                    </p>
-                  </Label>
+                  <span className="text-lg font-medium text-gray-900">
+                    Clique para selecionar pasta
+                  </span>
+                  <p className="text-sm text-gray-500 mt-1">
+                    Selecione a pasta que contém as subpastas com fotos
+                  </p>
                   <input
                     id="folder-upload"
                     type="file"
@@ -298,23 +342,25 @@ export default function CreateBatchAlbumsPage() {
                   <h3 className="text-lg font-medium mb-4">
                     Pastas Detectadas ({folderStructure.size})
                   </h3>
-                  <div className="grid gap-3">
-                    {Array.from(folderStructure.entries()).map(([folderName, files]) => (
-                      <div
-                        key={folderName}
-                        className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
-                      >
-                        <div className="flex items-center space-x-3">
-                          <FolderOpen className="h-5 w-5 text-blue-500" />
-                          <div>
-                            <div className="font-medium">{folderName}</div>
-                            <div className="text-sm text-gray-500">
-                              {files.length} foto(s)
+                  <div className="max-h-64 overflow-y-auto border border-gray-200 rounded-lg p-3 bg-gray-50/50">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                      {Array.from(folderStructure.entries()).map(([folderName, files]) => (
+                        <div
+                          key={folderName}
+                          className="flex flex-col items-center p-3 bg-white rounded-lg shadow-sm border border-gray-100 hover:shadow-md transition-shadow"
+                        >
+                          <FolderOpen className="h-8 w-8 text-blue-500 mb-2" />
+                          <div className="text-center">
+                            <div className="font-medium text-sm text-gray-900 truncate w-full" title={folderName}>
+                              {folderName}
+                            </div>
+                            <div className="text-xs text-gray-500 mt-1">
+                              {files.length} foto{files.length !== 1 ? 's' : ''}
                             </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
                 </div>
               )}
@@ -433,7 +479,7 @@ export default function CreateBatchAlbumsPage() {
             <div className="flex gap-4">
               <Button
                 onClick={handlePreview}
-                disabled={!eventName || folderStructure.size === 0 || isUploading}
+                disabled={!eventName || !selectedAlbumSize || folderStructure.size === 0 || isUploading}
                 variant="outline"
                 className="min-w-[200px]"
               >
@@ -441,7 +487,7 @@ export default function CreateBatchAlbumsPage() {
               </Button>
               <Button
                 onClick={handleCreateAlbums}
-                disabled={!eventName || folderStructure.size === 0 || isUploading || isCreatingMultiple || isPollingStatus}
+                disabled={!eventName || !selectedAlbumSize || folderStructure.size === 0 || isUploading || isCreatingMultiple || isPollingStatus}
                 className="min-w-[200px]"
               >
                 {isPollingStatus ? (
@@ -486,6 +532,7 @@ export default function CreateBatchAlbumsPage() {
               <div className="mb-6 p-4 bg-gray-50 rounded-lg">
                 <h3 className="font-semibold mb-2">📝 Configurações Globais</h3>
                 <p><strong>Evento:</strong> {previewData.eventName}</p>
+                <p><strong>Tamanho do Álbum:</strong> {ALBUM_SIZES.find(size => size.id === selectedAlbumSize)?.displayName}</p>
                 <p><strong>Total de Álbuns:</strong> {previewData.albums.length}</p>
               </div>
 

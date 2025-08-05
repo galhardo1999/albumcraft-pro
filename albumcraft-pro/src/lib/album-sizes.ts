@@ -20,7 +20,7 @@ export interface AlbumSizeConfig {
 export const ALBUM_SIZES: AlbumSizeConfig[] = [
   // Formatos Quadrados
   {
-    id: 'SIZE_15X15',
+    id: '15X15',
     name: '15x15cm',
     displayName: '15x15cm',
     description: 'Formato compacto e econômico',
@@ -34,7 +34,7 @@ export const ALBUM_SIZES: AlbumSizeConfig[] = [
     priceMultiplier: 0.7
   },
   {
-    id: 'SIZE_20X20',
+    id: '20X20',
     name: '20x20cm',
     displayName: '20x20cm',
     description: 'Formato quadrado clássico',
@@ -48,7 +48,7 @@ export const ALBUM_SIZES: AlbumSizeConfig[] = [
     priceMultiplier: 1.0
   },
   {
-    id: 'SIZE_25X25',
+    id: '25X25',
     name: '25x25cm',
     displayName: '25x25cm',
     description: 'Formato quadrado premium',
@@ -62,7 +62,7 @@ export const ALBUM_SIZES: AlbumSizeConfig[] = [
     priceMultiplier: 1.4
   },
   {
-    id: 'SIZE_30X30',
+    id: '30X30',
     name: '30x30cm',
     displayName: '30x30cm',
     description: 'Formato quadrado grande',
@@ -78,7 +78,7 @@ export const ALBUM_SIZES: AlbumSizeConfig[] = [
 
   // Formatos Paisagem
   {
-    id: 'SIZE_20X15',
+    id: '20X15',
     name: '20x15cm',
     displayName: '20x15cm',
     description: 'Formato paisagem compacto',

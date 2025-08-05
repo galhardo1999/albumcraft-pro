@@ -24,7 +24,11 @@ import {
   UserPlus,
   FolderOpen,
   CheckCircle,
-  AlertCircle
+  AlertCircle,
+  ChevronDown,
+  ChevronRight,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -49,8 +53,7 @@ export default function NovoEventoPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [formData, setFormData] = useState({
-    name: '',
-    description: ''
+    name: ''
   });
 
   // Estados para usuários
@@ -62,6 +65,7 @@ export default function NovoEventoPage() {
   // Estados para upload de fotos
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [expandedAlbums, setExpandedAlbums] = useState<Set<string>>(new Set());
 
   // Buscar usuários
   const fetchUsers = async (search = '') => {
@@ -124,14 +128,9 @@ export default function NovoEventoPage() {
       let folderName = 'Álbum Principal';
       
       if (pathParts.length > 1) {
-        // Se há subpastas, criar nome do álbum baseado no caminho completo
-        if (pathParts.length > 2) {
-          // Para subpastas: "PastaPrincipal/Subpasta"
-          folderName = pathParts.slice(0, -1).join('/');
-        } else {
-          // Para pasta simples: apenas o nome da pasta
-          folderName = pathParts[0];
-        }
+        // Usar sempre o nome da pasta mais próxima do arquivo (última pasta no caminho)
+        // Isso garante que subpastas tenham seus próprios nomes, não o caminho completo
+        folderName = pathParts[pathParts.length - 2]; // -2 porque -1 é o arquivo
       }
       
       console.log('Folder name determined:', folderName);
@@ -182,6 +181,19 @@ export default function NovoEventoPage() {
     setSelectedUsers(prev => prev.filter(u => u.id !== userId));
   };
 
+  // Controlar expansão dos álbuns
+  const toggleAlbumExpansion = (albumName: string) => {
+    setExpandedAlbums(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(albumName)) {
+        newSet.delete(albumName);
+      } else {
+        newSet.add(albumName);
+      }
+      return newSet;
+    });
+  };
+
   // Upload de fotos
   const uploadFiles = async (eventId: string) => {
     if (uploadedFiles.length === 0) return;
@@ -209,8 +221,7 @@ export default function NovoEventoPage() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             eventId,
-            name: folderName,
-            description: `Álbum ${folderName} do evento`
+            name: folderName
           })
         });
 
@@ -404,35 +415,28 @@ export default function NovoEventoPage() {
                       Nome que será exibido para os usuários
                     </p>
                   </div>
-
-                  <div>
-                    <Label htmlFor="description" className="text-sm font-medium text-gray-700">
-                      Descrição
-                    </Label>
-                    <Textarea
-                      id="description"
-                      value={formData.description}
-                      onChange={(e) => handleInputChange('description', e.target.value)}
-                      placeholder="Descrição opcional do evento..."
-                      className="mt-1"
-                      rows={3}
-                    />
-                  </div>
                 </CardContent>
               </Card>
 
               {/* Adicionar Usuários */}
               <Card>
                 <CardHeader>
-                  <CardTitle className="flex items-center">
-                    <UserPlus className="h-5 w-5 mr-2" />
-                    Adicionar Usuários
+                  <CardTitle className="flex items-center justify-between">
+                    <div className="flex items-center">
+                      <UserPlus className="h-5 w-5 mr-2" />
+                      Adicionar Usuários
+                    </div>
+                    {selectedUsers.length > 0 && (
+                      <Badge variant="outline" className="text-xs">
+                        {selectedUsers.length} selecionado{selectedUsers.length !== 1 ? 's' : ''}
+                      </Badge>
+                    )}
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div>
                     <Label className="text-sm font-medium text-gray-700">
-                      Buscar Usuários
+                      Buscar e Adicionar Usuários
                     </Label>
                     <div className="relative mt-1">
                       <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -444,56 +448,90 @@ export default function NovoEventoPage() {
                         className="pl-10"
                       />
                     </div>
+                    <p className="mt-1 text-xs text-gray-500">
+                      Digite para buscar usuários e clique para adicionar ao evento
+                    </p>
                   </div>
 
                   {/* Lista de usuários disponíveis */}
                   {userSearch && (
-                    <div className="max-h-40 overflow-y-auto border rounded-md">
+                    <div className="max-h-48 overflow-y-auto border rounded-lg bg-white shadow-sm">
                       {loadingUsers ? (
-                        <div className="p-4 text-center text-gray-500">Carregando...</div>
+                        <div className="p-4 text-center text-gray-500">
+                          <div className="animate-spin rounded-full h-5 w-5 border-2 border-blue-600 border-t-transparent mx-auto mb-2"></div>
+                          Carregando usuários...
+                        </div>
                       ) : users.length === 0 ? (
-                        <div className="p-4 text-center text-gray-500">Nenhum usuário encontrado</div>
+                        <div className="p-4 text-center text-gray-500">
+                          <User className="h-8 w-8 mx-auto mb-2 text-gray-300" />
+                          Nenhum usuário encontrado
+                        </div>
                       ) : (
-                        users.map(user => (
-                          <div
-                            key={user.id}
-                            className="p-3 hover:bg-gray-50 cursor-pointer border-b last:border-b-0"
-                            onClick={() => addUser(user)}
-                          >
-                            <div className="flex items-center">
-                              <User className="h-4 w-4 mr-2 text-gray-400" />
-                              <div>
-                                <p className="text-sm font-medium">{user.name}</p>
-                                <p className="text-xs text-gray-500">{user.email}</p>
+                        users
+                          .filter(user => !selectedUsers.find(selected => selected.id === user.id))
+                          .map(user => (
+                            <div
+                              key={user.id}
+                              className="p-3 hover:bg-blue-50 cursor-pointer border-b last:border-b-0 transition-colors"
+                              onClick={() => addUser(user)}
+                            >
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center">
+                                  <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center mr-3">
+                                    <User className="h-4 w-4 text-blue-600" />
+                                  </div>
+                                  <div>
+                                    <p className="text-sm font-medium text-gray-900">{user.name}</p>
+                                    <p className="text-xs text-gray-500">{user.email}</p>
+                                  </div>
+                                </div>
+                                <UserPlus className="h-4 w-4 text-gray-400" />
                               </div>
                             </div>
-                          </div>
-                        ))
+                          ))
                       )}
                     </div>
                   )}
 
                   {/* Usuários selecionados */}
                   {selectedUsers.length > 0 && (
-                    <div>
-                      <Label className="text-sm font-medium text-gray-700">
-                        Usuários Selecionados ({selectedUsers.length})
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <Label className="text-sm font-medium text-gray-700 mb-3 block">
+                        Usuários que terão acesso ao evento
                       </Label>
-                      <div className="flex flex-wrap gap-2 mt-2">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                         {selectedUsers.map(user => (
-                          <Badge key={user.id} variant="secondary" className="flex items-center gap-1">
-                            <User className="h-3 w-3" />
-                            {user.name}
-                            <button
-                              type="button"
-                              onClick={() => removeUser(user.id)}
-                              className="ml-1 hover:text-red-600"
-                            >
-                              <X className="h-3 w-3" />
-                            </button>
-                          </Badge>
+                          <div key={user.id} className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center">
+                                <div className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center mr-2">
+                                  <User className="h-3 w-3 text-green-600" />
+                                </div>
+                                <div>
+                                  <p className="text-sm font-medium text-gray-900">{user.name}</p>
+                                  <p className="text-xs text-gray-500">{user.email}</p>
+                                </div>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => removeUser(user.id)}
+                                className="p-1 hover:bg-red-100 rounded-full transition-colors"
+                                title="Remover usuário"
+                              >
+                                <X className="h-3 w-3 text-red-500" />
+                              </button>
+                            </div>
+                          </div>
                         ))}
                       </div>
+                    </div>
+                  )}
+
+                  {selectedUsers.length === 0 && (
+                    <div className="text-center py-6 text-gray-500">
+                      <UserPlus className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+                      <p className="text-sm">Nenhum usuário adicionado ainda</p>
+                      <p className="text-xs">Use a busca acima para encontrar e adicionar usuários</p>
                     </div>
                   )}
                 </CardContent>
@@ -589,84 +627,131 @@ export default function NovoEventoPage() {
                   {uploadedFiles.length > 0 && (
                     <div>
                       <Label className="text-sm font-medium text-gray-700">
-                        Fotos Selecionadas ({uploadedFiles.length})
+                        Álbuns Detectados ({uploadedFiles.length} fotos)
                       </Label>
                       
-                      {/* Agrupar por pasta */}
-                      {(() => {
-                        const groupedFiles = uploadedFiles.reduce((acc, file, index) => {
-                          const folder = file.folderName || 'Álbum Principal';
-                          if (!acc[folder]) acc[folder] = [];
-                          acc[folder].push({ ...file, index });
-                          return acc;
-                        }, {} as Record<string, Array<UploadedFile & { index: number }>>);
+                      {/* Container com scroll */}
+                      <div className="max-h-96 overflow-y-auto pr-2 space-y-4 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
+                        {/* Agrupar por pasta */}
+                        {(() => {
+                          const groupedFiles = uploadedFiles.reduce((acc, file, index) => {
+                            const folder = file.folderName || 'Álbum Principal';
+                            if (!acc[folder]) acc[folder] = [];
+                            acc[folder].push({ ...file, index });
+                            return acc;
+                          }, {} as Record<string, Array<UploadedFile & { index: number }>>);
 
-                        return Object.entries(groupedFiles).map(([folderName, files]) => (
-                          <div key={folderName} className="mb-6">
-                            <div className="flex items-center mb-3">
-                              <FolderOpen className="h-4 w-4 mr-2 text-blue-600" />
-                              <h4 className="text-sm font-medium text-gray-800">{folderName}</h4>
-                              <Badge variant="secondary" className="ml-2 text-xs">
-                                {files.length} foto{files.length !== 1 ? 's' : ''}
-                              </Badge>
-                            </div>
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                              {files.map((fileData) => {
-                                // Verificação de segurança
-                                if (!fileData.file) {
-                                  return null;
-                                }
-                                
-                                return (
-                                  <div key={fileData.index} className="relative">
-                                    <div className="aspect-square bg-gray-100 rounded-lg overflow-hidden">
-                                      <img
-                                        src={fileData.preview}
-                                        alt={fileData.file?.name || 'Imagem'}
-                                        className="w-full h-full object-cover"
-                                      />
+                          return Object.entries(groupedFiles).map(([folderName, files]) => {
+                            const isExpanded = expandedAlbums.has(folderName);
+                            
+                            return (
+                              <div key={folderName}>
+                                {/* Card do Álbum */}
+                                <div className="bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-shadow">
+                                  {/* Header do Card - Clicável */}
+                                  <button
+                                    type="button"
+                                    onClick={() => toggleAlbumExpansion(folderName)}
+                                    className="w-full p-4 flex items-center justify-between hover:bg-gray-50 transition-colors rounded-t-lg"
+                                  >
+                                    <div className="flex items-center gap-3">
+                                      <div className="flex-shrink-0">
+                                        <FolderOpen className="h-6 w-6 text-blue-600" />
+                                      </div>
+                                      <div className="text-left">
+                                        <h4 className="font-medium text-gray-900">{folderName}</h4>
+                                        <p className="text-sm text-gray-500">
+                                          {files.length} {files.length === 1 ? 'foto' : 'fotos'}
+                                        </p>
+                                      </div>
                                     </div>
-                                    <button
-                                      type="button"
-                                      onClick={() => removeFile(fileData.index)}
-                                      className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
-                                    >
-                                      <X className="h-3 w-3" />
-                                    </button>
-                                    <div className="mt-1">
-                                      <p className="text-xs text-gray-600 truncate" title={fileData.file?.name || 'Arquivo'}>
-                                        {fileData.file?.name || 'Arquivo sem nome'}
-                                      </p>
-                                      <div className="flex gap-1 mt-1">
-                                        {fileData.uploaded && (
-                                          <Badge variant="default" className="text-xs">
-                                            <CheckCircle className="h-3 w-3 mr-1" />
-                                            Enviado
-                                          </Badge>
-                                        )}
-                                        {fileData.error && (
-                                          <Badge variant="destructive" className="text-xs">
-                                            <AlertCircle className="h-3 w-3 mr-1" />
-                                            Erro
-                                          </Badge>
-                                        )}
-                                        {fileData.progress > 0 && fileData.progress < 100 && (
-                                          <div className="w-full bg-gray-200 rounded-full h-2 mt-1">
-                                            <div 
-                                              className="bg-blue-600 h-2 rounded-full transition-all duration-300" 
-                                              style={{ width: `${fileData.progress}%` }}
-                                            ></div>
-                                          </div>
+                                    
+                                    <div className="flex items-center gap-2">
+                                      <Badge variant="secondary" className="text-xs">
+                                        {files.length}
+                                      </Badge>
+                                      <div className="flex items-center gap-1">
+                                        {isExpanded ? (
+                                          <>
+                                            <EyeOff className="h-4 w-4 text-gray-400" />
+                                            <ChevronDown className="h-4 w-4 text-gray-400" />
+                                          </>
+                                        ) : (
+                                          <>
+                                            <Eye className="h-4 w-4 text-gray-400" />
+                                            <ChevronRight className="h-4 w-4 text-gray-400" />
+                                          </>
                                         )}
                                       </div>
                                     </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        ));
-                      })()}
+                                  </button>
+                                  
+                                  {/* Conteúdo Expandível - Fotos */}
+                                  {isExpanded && (
+                                    <div className="border-t border-gray-200 p-4">
+                                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                        {files.map((fileData) => {
+                                          // Verificação de segurança
+                                          if (!fileData.file) {
+                                            return null;
+                                          }
+                                          
+                                          return (
+                                            <div key={fileData.index} className="relative group">
+                                              <div className="aspect-square bg-gray-100 rounded-lg overflow-hidden">
+                                                <img
+                                                  src={fileData.preview}
+                                                  alt={fileData.file?.name || 'Imagem'}
+                                                  className="w-full h-full object-cover"
+                                                />
+                                              </div>
+                                              <button
+                                                type="button"
+                                                onClick={() => removeFile(fileData.index)}
+                                                className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
+                                                title="Remover foto"
+                                              >
+                                                <X className="h-3 w-3" />
+                                              </button>
+                                              <div className="mt-1">
+                                                <p className="text-xs text-gray-600 truncate" title={fileData.file?.name || 'Arquivo'}>
+                                                  {fileData.file?.name || 'Arquivo sem nome'}
+                                                </p>
+                                                <div className="flex gap-1 mt-1">
+                                                  {fileData.uploaded && (
+                                                    <Badge variant="default" className="text-xs">
+                                                      <CheckCircle className="h-3 w-3 mr-1" />
+                                                      Enviado
+                                                    </Badge>
+                                                  )}
+                                                  {fileData.error && (
+                                                    <Badge variant="destructive" className="text-xs">
+                                                      <AlertCircle className="h-3 w-3 mr-1" />
+                                                      Erro
+                                                    </Badge>
+                                                  )}
+                                                  {fileData.progress > 0 && fileData.progress < 100 && (
+                                                    <div className="w-full bg-gray-200 rounded-full h-2 mt-1">
+                                                      <div 
+                                                        className="bg-blue-600 h-2 rounded-full transition-all duration-300" 
+                                                        style={{ width: `${fileData.progress}%` }}
+                                                      ></div>
+                                                    </div>
+                                                  )}
+                                                </div>
+                                              </div>
+                                            </div>
+                                          );
+                                        })}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          });
+                        })()}
+                      </div>
                     </div>
                   )}
                 </CardContent>
