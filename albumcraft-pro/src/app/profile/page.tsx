@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { useAuth } from '@/hooks/useAuth'
 
 interface UserProfile {
   id: string
@@ -37,6 +38,7 @@ export default function ProfilePage() {
   const [message, setMessage] = useState('')
   const [messageType, setMessageType] = useState<'success' | 'error'>('success')
   const router = useRouter()
+  const { logout } = useAuth()
 
   const fetchUserProfile = useCallback(async () => {
     try {
@@ -170,17 +172,7 @@ export default function ProfilePage() {
   }
 
   const handleLogout = async () => {
-    try {
-      await fetch('/api/auth/logout', { 
-        method: 'POST',
-        credentials: 'include'
-      });
-      
-      document.cookie = 'auth-token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;'
-      router.push('/auth/login');
-    } catch (error: unknown) {
-      console.error('Erro ao fazer logout:', error);
-    }
+    await logout()
   };
 
   if (isLoading) {
@@ -211,7 +203,7 @@ export default function ProfilePage() {
                 Dashboard
               </Link>
               <Link 
-                href="/projects" 
+                href="/albums" 
                 className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
               >
                 Meus Álbuns

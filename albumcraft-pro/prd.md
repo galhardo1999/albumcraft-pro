@@ -174,7 +174,6 @@ RNF006 - Escalabilidade: A arquitetura deve ser capaz de suportar um número cre
 - Prisma ORM 6.11.1 - Database toolkit type-safe ✅
 - Zod - Validação de schemas server-side ✅
 - bcryptjs 3.0.2 - Hash de senhas ✅
-- jose 6.0.11 - JWT handling seguro ✅
 
 **Banco de Dados:**
 - PostgreSQL 15+ - Banco relacional principal ✅
@@ -185,7 +184,7 @@ RNF006 - Escalabilidade: A arquitetura deve ser capaz de suportar um número cre
 - Sistema JWT customizado - Gerenciamento de sessões ✅
 - Google OAuth - Login social implementado ✅
 - Middleware de autenticação - Proteção de rotas ✅
-- RBAC (Role-Based Access Control) - Controle de acesso com admin ✅
+- Controle de acesso com admin ✅
 - Recuperação de senha - Sistema completo ✅
 
 **Armazenamento e CDN:**

@@ -7,9 +7,9 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { AdminProtectedRoute } from '@/components/AdminProtectedRoute';
 import { AdminNavbar } from '@/components/AdminNavbar';
-import CreateProjectModal from '@/components/CreateProjectModal';
-import ProjectCreationTypeModal from '@/components/ProjectCreationTypeModal';
-import CreateMultipleProjectsModal from '@/components/CreateMultipleProjectsModal';
+import CreateAlbumModal from '@/components/CreateAlbumModal';
+import AlbumCreationTypeModal from '@/components/AlbumCreationTypeModal';
+import CreateMultipleAlbumsModal from '@/components/CreateMultipleAlbumsModal';
 import { 
   FolderOpen, 
   Trash2,
@@ -63,10 +63,10 @@ export default function AdminProjectsPage() {
   const loadProjects = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/admin/projects');
+      const response = await fetch('/api/admin/albums');
       if (response.ok) {
         const data = await response.json();
-        setProjects(data.projects);
+        setProjects(data.albums);
       }
     } catch (error) {
       console.error('Erro ao carregar projetos:', error);
@@ -106,7 +106,7 @@ export default function AdminProjectsPage() {
     if (!confirm('Tem certeza que deseja deletar este projeto?')) return;
     
     try {
-      const response = await fetch(`/api/admin/projects/${projectId}`, {
+      const response = await fetch(`/api/admin/albums/${projectId}`, {
         method: 'DELETE'
       });
       
@@ -203,7 +203,7 @@ export default function AdminProjectsPage() {
   return (
     <AdminProtectedRoute>
       <div className="min-h-screen bg-gray-50">
-        <AdminNavbar activeTab="projects" onTabChange={() => {}} />
+        <AdminNavbar activeTab="albums" onTabChange={() => {}} />
         
         <div className="lg:pl-64">
           <main className="py-6">
@@ -530,22 +530,22 @@ export default function AdminProjectsPage() {
       </div>
 
       {/* Modals */}
-      <ProjectCreationTypeModal
+      <AlbumCreationTypeModal
         isOpen={isProjectTypeModalOpen}
         onClose={handleCloseAllModals}
         onSelectType={handleProjectTypeSelect}
       />
       
-      <CreateProjectModal
+      <CreateAlbumModal
         isOpen={isCreateProjectModalOpen}
         onClose={handleCloseAllModals}
-        onProjectCreated={loadProjects}
+        onAlbumCreated={loadProjects}
       />
       
-      <CreateMultipleProjectsModal
+      <CreateMultipleAlbumsModal
         isOpen={isCreateMultipleProjectsModalOpen}
         onClose={handleCloseAllModals}
-        onProjectsCreated={loadProjects}
+        onAlbumsCreated={loadProjects}
       />
     </AdminProtectedRoute>
   );

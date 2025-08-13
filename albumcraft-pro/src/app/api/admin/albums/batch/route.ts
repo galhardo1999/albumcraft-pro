@@ -1,27 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/admin-middleware'
 import { prisma } from '@/lib/prisma'
+import { BatchAlbumRequest, type BatchAlbumRequestType } from '@/lib/validations'
 import { addAlbumCreationJob } from '@/lib/queue'
 
 interface AlbumData {
   name: string
+  description?: string
   albumSize: string
-  status: string
-  group: string
-  eventName?: string | null
+  status?: string
+  creationType?: string
+  group?: string
+  customWidth?: number
+  customHeight?: number
   files?: Array<{
-    name: string
-    size: number
-    type: string
+    filename: string
     buffer: string // Base64 encoded
   }>
-}
-
-interface BatchProjectRequest {
-  userId: string
-  albums: AlbumData[]
-  sessionId?: string
-  useQueue?: boolean
+  eventName?: string
 }
 
 export async function POST(request: NextRequest) {
@@ -32,7 +28,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const body: BatchProjectRequest = await request.json()
+    const body: BatchAlbumRequestType = await request.json()
     const { userId, albums, sessionId, useQueue = true } = body
 
     // Validar dados de entrada
@@ -59,12 +55,12 @@ export async function POST(request: NextRequest) {
     if (useQueue && albums.some(album => album.files && album.files.length > 0)) {
       const jobPromises = albums.map(async (album, index) => {
         if (!album.files || album.files.length === 0) {
-          // Criar projeto sem fotos diretamente
-          return await createProjectDirectly(userId, album)
+          // Criar álbum sem fotos diretamente
+          return await createAlbumDirectly(userId, album)
         }
 
         // Converter arquivos de Base64 para Buffer
-        const processedFiles = album.files.map(file => ({
+        const processedFiles = album.files.map((file: any) => ({
           ...file,
           buffer: Buffer.from(file.buffer, 'base64')
         }))
@@ -73,12 +69,12 @@ export async function POST(request: NextRequest) {
         const priority = albums.length - index
         
         const job = await addAlbumCreationJob({
-           userId,
-           eventName: album.eventName || album.group,
-           albumName: album.name,
-           files: processedFiles,
-           sessionId: sessionId || `admin-${Date.now()}`
-         }, priority)
+          userId,
+          eventName: album.eventName || album.name,
+          albumName: album.name,
+          files: processedFiles,
+          sessionId: sessionId || `admin-${Date.now()}`
+        }, priority)
 
         return {
           albumName: album.name,
@@ -98,8 +94,8 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // Criar múltiplos projetos diretamente (modo síncrono)
-    const createdProjects = []
+    // Criar múltiplos álbuns diretamente (modo síncrono)
+    const createdAlbums = []
     
     for (const album of albums) {
       // Validar dados do álbum
@@ -108,31 +104,31 @@ export async function POST(request: NextRequest) {
       }
 
       try {
-        const project = await createProjectDirectly(userId, album)
-        createdProjects.push(project)
-      } catch (projectError) {
-        console.error('Erro ao criar projeto:', album.name, projectError)
-        // Continuar com os próximos projetos mesmo se um falhar
+        const createdAlbum = await createAlbumDirectly(userId, album)
+        createdAlbums.push(createdAlbum)
+      } catch (albumError) {
+        console.error('Erro ao criar álbum:', album.name, albumError)
+        // Continuar com os próximos álbuns mesmo se um falhar
       }
     }
 
-    if (createdProjects.length === 0) {
+    if (createdAlbums.length === 0) {
       return NextResponse.json(
-        { error: 'Nenhum projeto foi criado. Verifique os dados enviados.' },
+        { error: 'Nenhum álbum foi criado. Verifique os dados enviados.' },
         { status: 400 }
       )
     }
 
     return NextResponse.json({
       success: true,
-      message: `${createdProjects.length} projetos criados com sucesso`,
-      projects: createdProjects,
-      total: createdProjects.length,
+      message: `${createdAlbums.length} álbuns criados com sucesso`,
+      albums: createdAlbums,
+      total: createdAlbums.length,
       useQueue: false
     })
 
   } catch (error) {
-    console.error('Erro ao criar projetos em lote:', error)
+    console.error('Erro ao criar álbuns em lote:', error)
     return NextResponse.json(
       { error: 'Erro interno do servidor' },
       { status: 500 }
@@ -140,13 +136,13 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// Função auxiliar para criar projeto diretamente
-async function createProjectDirectly(userId: string, album: AlbumData) {
-  return await prisma.project.create({
+// Função auxiliar para criar álbum diretamente
+async function createAlbumDirectly(userId: string, album: AlbumData) {
+  return await prisma.album.create({
     data: {
       name: album.name,
       albumSize: album.albumSize as any,
-      status: album.status as any,
+      status: (album.status || 'DRAFT') as any,
       userId: userId,
       creationType: 'BATCH',
       template: 'classic',
@@ -164,5 +160,5 @@ async function createProjectDirectly(userId: string, album: AlbumData) {
         }
       }
     }
-   })
- }
+  })
+}

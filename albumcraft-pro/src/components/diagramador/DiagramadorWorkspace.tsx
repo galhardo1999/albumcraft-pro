@@ -33,7 +33,7 @@ interface Photo {
   width: number
   height: number
   fileSize: number
-  projectId?: string | null
+  albumId?: string | null
   thumbnailUrl?: string
   mediumUrl?: string
 }
@@ -216,7 +216,7 @@ export default function DiagramadorWorkspace({ project }: DiagramadorWorkspacePr
   const loadPhotos = useCallback(async () => {
     try {
       console.log('🔄 Carregando fotos do projeto:', project.id)
-      const response = await fetch(`/api/photos?projectId=${project.id}`, {
+      const response = await fetch(`/api/photos?albumId=${project.id}`, {
         credentials: 'include',
         headers: {
           'Content-Type': 'application/json'
@@ -624,14 +624,14 @@ export default function DiagramadorWorkspace({ project }: DiagramadorWorkspacePr
         <div className="w-80 border-r bg-card flex-shrink-0 flex flex-col">
           <PhotoGallery
             photos={photos}
-            projectId={project.id}
+            albumId={project.id}
             onPhotoDragStart={handlePhotoDragStart}
             onPhotoDragEnd={() => setDraggedPhoto(null)}
             onPhotoImport={async (newPhotos) => {
               setPhotos(prev => [...newPhotos, ...prev])
               
               try {
-                const response = await fetch(`/api/photos?projectId=${project.id}`)
+                const response = await fetch(`/api/photos?albumId=${project.id}`)
                 if (response.ok) {
                   const data = await response.json()
                   if (data.success) {

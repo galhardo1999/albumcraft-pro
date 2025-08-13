@@ -93,7 +93,7 @@ export default function CreateBatchAlbumsPage() {
             
             // Mostrar mensagem de sucesso
             setTimeout(() => {
-              router.push('/projects')
+              router.push('/albums')
             }, 2000)
           }
         }
@@ -170,7 +170,7 @@ export default function CreateBatchAlbumsPage() {
       console.log(`🚀 Enviando ${albums.length} álbuns para processamento`)
 
       // Enviar todos os álbuns para a fila de uma vez
-      const response = await fetch('/api/projects/batch', {
+      const response = await fetch('/api/albums/batch', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -198,7 +198,7 @@ export default function CreateBatchAlbumsPage() {
       } else {
         // Fallback para processamento síncrono
         setTimeout(() => {
-          router.push('/projects')
+          router.push('/albums')
         }, 2000)
       }
 

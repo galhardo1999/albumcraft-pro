@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Card } from '@/components/ui/card'
 import { X, Trash2, FolderOpen } from 'lucide-react'
-import { ALBUM_SIZES, getPopularSizes, getSizesByCategory, formatSizeDisplay, AlbumSizeConfig } from '@/lib/album-sizes'
+import { getPopularSizes, getSizesByCategory, formatSizeDisplay, AlbumSizeConfig } from '@/lib/album-sizes'
 import NextImage from 'next/image'
 
 interface User {
@@ -23,7 +23,7 @@ interface Photo {
   width: number
   height: number
   fileSize: number
-  projectId?: string | null
+  albumId?: string | null
 }
 
 // Nova interface para fotos temporárias (apenas em memória)
@@ -49,17 +49,17 @@ interface ExistingPhoto {
 // Interface unificada para fotos (persistidas ou temporárias)
 type PhotoItem = Photo | TempPhoto
 
-interface CreateMultipleProjectsModalProps {
+interface CreateMultipleAlbumsModalProps {
   isOpen: boolean
   onClose: () => void
-  onProjectsCreated: () => void
+  onAlbumsCreated: () => void
 }
 
 interface FolderStructure {
   [folderName: string]: PhotoItem[]
 }
 
-export default function CreateMultipleProjectsModal({ isOpen, onClose, onProjectsCreated }: CreateMultipleProjectsModalProps) {
+export default function CreateMultipleAlbumsModal({ isOpen, onClose, onAlbumsCreated }: CreateMultipleAlbumsModalProps) {
   const [formData, setFormData] = useState({
     userId: '',
     group: '',
@@ -454,8 +454,8 @@ export default function CreateMultipleProjectsModal({ isOpen, onClose, onProject
         })
       )
 
-      // Criar múltiplos projetos
-      const response = await fetch('/api/admin/projects/batch', {
+      // Criar múltiplos álbuns
+      const response = await fetch('/api/admin/albums/batch', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -478,27 +478,27 @@ export default function CreateMultipleProjectsModal({ isOpen, onClose, onProject
 
       if (!response.ok) {
         const errorData = await response.json()
-        setError(errorData.message || 'Erro ao criar projetos')
+        setError(errorData.message || 'Erro ao criar álbuns')
         return
       }
 
       const data = await response.json()
-      const createdProjects = data.projects
+      const createdAlbums = data.projects
 
-      // Processar fotos para cada projeto criado
-      if (createdProjects && createdProjects.length > 0) {
+      // Processar fotos para cada álbum criado
+      if (createdAlbums && createdAlbums.length > 0) {
         try {
           // Controle de concorrência - processar em lotes menores
           const BATCH_SIZE = 3 // Máximo 3 uploads simultâneos
           const allUploads: Array<{
             promise: () => Promise<Response>
             photoIndex: number
-            projectName: string
+            albumName: string
           }> = []
 
           // Preparar todos os uploads
-          for (let i = 0; i < createdProjects.length; i++) {
-            const project = createdProjects[i]
+          for (let i = 0; i < createdAlbums.length; i++) {
+            const album = createdAlbums[i]
             const albumData = albumsData[i]
             
             if (albumData.photos && albumData.photos.length > 0) {
@@ -512,7 +512,7 @@ export default function CreateMultipleProjectsModal({ isOpen, onClose, onProject
                     promise: () => {
                       const formDataUpload = new FormData()
                       formDataUpload.append('files', photo.file)
-                      formDataUpload.append('projectId', project.id)
+                      formDataUpload.append('albumId', album.id)
                       formDataUpload.append('userId', formData.userId)
 
                       return fetch('/api/admin/photos', {
@@ -523,10 +523,10 @@ export default function CreateMultipleProjectsModal({ isOpen, onClose, onProject
                       })
                     },
                     photoIndex,
-                    projectName: albumData.name
+                    albumName: albumData.name
                   })
                 } else {
-                  // É uma foto existente - apenas associar ao projeto
+                  // É uma foto existente - apenas associar ao álbum
                   allUploads.push({
                     promise: () => fetch(`/api/admin/photos/${photo.id}`, {
                       method: 'PATCH',
@@ -536,11 +536,11 @@ export default function CreateMultipleProjectsModal({ isOpen, onClose, onProject
                       credentials: 'include',
                       signal: AbortSignal.timeout(30000), // Timeout de 30 segundos
                       body: JSON.stringify({
-                        projectId: project.id
+                        albumId: album.id
                       })
                     }),
                     photoIndex,
-                    projectName: albumData.name
+                    albumName: albumData.name
                   })
                 }
               }
@@ -567,13 +567,13 @@ export default function CreateMultipleProjectsModal({ isOpen, onClose, onProject
               const upload = batch[j]
               
               if (result.status === 'rejected') {
-                console.error(`Erro no upload da foto ${upload.photoIndex} (${upload.projectName}):`, result.reason)
+                console.error(`Erro no upload da foto ${upload.photoIndex} (${upload.albumName}):`, result.reason)
                 
                 // Verificar se é erro de timeout
                 if (result.reason?.name === 'TimeoutError' || result.reason?.message?.includes('timeout')) {
-                  errors.push(`Foto ${upload.photoIndex} (${upload.projectName}): Timeout - tente novamente`)
+                  errors.push(`Foto ${upload.photoIndex} (${upload.albumName}): Timeout - tente novamente`)
                 } else {
-                  errors.push(`Foto ${upload.photoIndex} (${upload.projectName}): Erro de conexão`)
+                  errors.push(`Foto ${upload.photoIndex} (${upload.albumName}): Erro de conexão`)
                 }
               } else {
                 const { response } = result.value
@@ -581,9 +581,9 @@ export default function CreateMultipleProjectsModal({ isOpen, onClose, onProject
                   try {
                     const errorData = await response.json()
                     console.error(`Erro HTTP ${response.status} na foto ${upload.photoIndex}:`, errorData)
-                    errors.push(`Foto ${upload.photoIndex} (${upload.projectName}): ${errorData.error || `HTTP ${response.status}`}`)
+                    errors.push(`Foto ${upload.photoIndex} (${upload.albumName}): ${errorData.error || `HTTP ${response.status}`}`)
                   } catch {
-                    errors.push(`Foto ${upload.photoIndex} (${upload.projectName}): Erro HTTP ${response.status}`)
+                    errors.push(`Foto ${upload.photoIndex} (${upload.albumName}): Erro HTTP ${response.status}`)
                   }
                 } else {
                   successes.push(upload.photoIndex)
@@ -602,9 +602,9 @@ export default function CreateMultipleProjectsModal({ isOpen, onClose, onProject
           if (errors.length > 0) {
             console.error('Erros encontrados nos uploads:', errors)
             if (successes.length > 0) {
-              setError(`Projetos criados! ${successes.length} fotos enviadas com sucesso, mas ${errors.length} falharam. Erros: ${errors.slice(0, 5).join(', ')}${errors.length > 5 ? '...' : ''}`)
+              setError(`Álbuns criados! ${successes.length} fotos enviadas com sucesso, mas ${errors.length} falharam. Erros: ${errors.slice(0, 5).join(', ')}${errors.length > 5 ? '...' : ''}`)
             } else {
-              setError(`Projetos criados, mas todas as fotos falharam no upload. Verifique o tamanho e formato das imagens.`)
+              setError(`Álbuns criados, mas todas as fotos falharam no upload. Verifique o tamanho e formato das imagens.`)
             }
           } else {
             // Sucesso total
@@ -620,7 +620,7 @@ export default function CreateMultipleProjectsModal({ isOpen, onClose, onProject
 
         } catch (photoError) {
           console.error('Erro ao processar fotos:', photoError)
-          setError('Projetos criados, mas houve erro ao processar algumas fotos.')
+          setError('Álbuns criados, mas houve erro ao processar algumas fotos.')
         }
       }
 
@@ -634,12 +634,12 @@ export default function CreateMultipleProjectsModal({ isOpen, onClose, onProject
       })
       setPhotos([])
       setFolderStructure({})
-      onProjectsCreated()
+      onAlbumsCreated()
       onClose()
       
     } catch (error) {
-      console.error('Error creating projects:', error)
-      setError('Erro ao criar projetos. Tente novamente.')
+      console.error('Error creating albums:', error)
+      setError('Erro ao criar álbuns. Tente novamente.')
     } finally {
       setIsLoading(false)
     }
@@ -652,7 +652,7 @@ export default function CreateMultipleProjectsModal({ isOpen, onClose, onProject
       <Card className="w-full max-w-6xl max-h-[90vh] overflow-y-auto">
         <div className="p-6">
           <div className="flex justify-between items-center mb-6">
-            <h2 className="text-xl font-semibold">Criar Múltiplos Projetos</h2>
+            <h2 className="text-xl font-semibold">Criar Múltiplos Álbuns</h2>
             <button
               onClick={onClose}
               className="text-gray-500 hover:text-gray-700 text-xl font-bold"
@@ -731,7 +731,7 @@ export default function CreateMultipleProjectsModal({ isOpen, onClose, onProject
                   <button
                     key={key}
                     type="button"
-                    onClick={() => setSelectedCategory(key as any)}
+                    onClick={() => setSelectedCategory(key as 'popular' | 'square' | 'landscape' | 'portrait')}
                     className={`px-3 py-1 text-sm rounded-full transition-colors ${
                       selectedCategory === key
                         ? 'bg-blue-500 text-white'
@@ -773,7 +773,7 @@ export default function CreateMultipleProjectsModal({ isOpen, onClose, onProject
 
             {/* Upload de Fotos */}
             <div>
-              <Label>Fotos dos Projetos</Label>
+              <Label>Fotos dos Álbuns</Label>
               
               <div className="mt-2 space-y-4">
                 {/* Botões de Upload */}
@@ -826,7 +826,7 @@ export default function CreateMultipleProjectsModal({ isOpen, onClose, onProject
                   accept="image/*"
                   onChange={handleFolderUpload}
                   className="hidden"
-                  {...({ webkitdirectory: "true" } as any)}
+                  {...({ webkitdirectory: "true" } as React.InputHTMLAttributes<HTMLInputElement>)}
                 />
 
                 {/* Opção de usar sistema de filas */}
@@ -998,7 +998,7 @@ export default function CreateMultipleProjectsModal({ isOpen, onClose, onProject
 
             {/* Status */}
             <div>
-              <Label htmlFor="status">Status dos Projetos</Label>
+              <Label htmlFor="status">Status dos Álbuns</Label>
               <Select value={formData.status} onValueChange={(value) => handleInputChange('status', value)}>
                 <SelectTrigger>
                   <SelectValue />
@@ -1017,7 +1017,7 @@ export default function CreateMultipleProjectsModal({ isOpen, onClose, onProject
                 Cancelar
               </Button>
               <Button type="submit" disabled={isLoading || Object.keys(folderStructure).length === 0}>
-                {isLoading ? 'Criando...' : `Criar ${Object.keys(folderStructure).length} Projetos`}
+                {isLoading ? 'Criando...' : `Criar ${Object.keys(folderStructure).length} Álbuns`}
               </Button>
             </div>
           </form>

@@ -2,9 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { withAuth } from '@/lib/auth-middleware'
 import { z } from 'zod'
 import { addAlbumCreationJob, processAlbumSynchronously } from '@/lib/queue'
-import { PrismaClient, ProjectStatus } from '@prisma/client'
-
-const prisma = new PrismaClient()
+import { prisma } from '@/lib/prisma'
 
 // Schema de validação
 const batchCreateSchema = z.object({

@@ -15,7 +15,7 @@ export async function GET(
   const params = await context.params;
 
   try {
-    const project = await prisma.project.findUnique({
+    const album = await prisma.album.findUnique({
       where: { id: params.id },
       include: {
         user: {
@@ -33,7 +33,7 @@ export async function GET(
                   select: {
                     id: true,
                     filename: true,
-                    thumbnailUrl: true
+                    s3Url: true
                   }
                 }
               }
@@ -44,24 +44,24 @@ export async function GET(
           select: {
             id: true,
             filename: true,
-            thumbnailUrl: true,
-            fileSize: true,
-            uploadedAt: true
+            s3Url: true,
+            size: true,
+            createdAt: true
           }
         }
       }
     });
 
-    if (!project) {
+    if (!album) {
       return NextResponse.json(
-        { error: 'Projeto não encontrado' },
+        { error: 'Álbum não encontrado' },
         { status: 404 }
       );
     }
 
-    return NextResponse.json({ project });
+    return NextResponse.json({ album });
   } catch (error) {
-    console.error('Erro ao buscar projeto:', error);
+    console.error('Erro ao buscar álbum:', error);
     return NextResponse.json(
       { error: 'Erro interno do servidor' },
       { status: 500 }
@@ -85,7 +85,7 @@ export async function PUT(
     const body = await request.json();
     const { name, description, status, albumSize } = body;
 
-    const updatedProject = await prisma.project.update({
+    const updatedAlbum = await prisma.album.update({
       where: { id: params.id },
       data: {
         ...(name && { name }),
@@ -104,9 +104,9 @@ export async function PUT(
       }
     });
 
-    return NextResponse.json({ project: updatedProject });
+    return NextResponse.json({ album: updatedAlbum });
   } catch (error) {
-    console.error('Erro ao atualizar projeto:', error);
+    console.error('Erro ao atualizar álbum:', error);
     return NextResponse.json(
       { error: 'Erro interno do servidor' },
       { status: 500 }
@@ -127,26 +127,26 @@ export async function DELETE(
   const params = await context.params;
 
   try {
-    // Verificar se o projeto existe
-    const project = await prisma.project.findUnique({
+    // Verificar se o álbum existe
+    const album = await prisma.album.findUnique({
       where: { id: params.id }
     });
 
-    if (!project) {
+    if (!album) {
       return NextResponse.json(
-        { error: 'Projeto não encontrado' },
+        { error: 'Álbum não encontrado' },
         { status: 404 }
       );
     }
 
-    // Deletar o projeto (cascade irá deletar páginas e relacionamentos)
-    await prisma.project.delete({
+    // Deletar o álbum (cascade irá deletar páginas e relacionamentos)
+    await prisma.album.delete({
       where: { id: params.id }
     });
 
-    return NextResponse.json({ message: 'Projeto deletado com sucesso' });
+    return NextResponse.json({ message: 'Álbum deletado com sucesso' });
   } catch (error) {
-    console.error('Erro ao deletar projeto:', error);
+    console.error('Erro ao deletar álbum:', error);
     return NextResponse.json(
       { error: 'Erro interno do servidor' },
       { status: 500 }

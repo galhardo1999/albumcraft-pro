@@ -16,7 +16,7 @@ enum UserPlan {
   ENTERPRISE
 }
 
-enum ProjectStatus {
+enum AlbumStatus {
   DRAFT
   IN_PROGRESS
   COMPLETED
@@ -74,7 +74,7 @@ model User {
   resetPasswordExpires  DateTime? @map("reset_password_expires")
 
   // Relacionamentos
-  projects Project[]
+  albums   Album[]
   photos   Photo[]
   layouts  Layout[]
   
@@ -84,14 +84,14 @@ model User {
   @@map("users")
 }
 
-model Project {
+model Album {
   id           String        @id @default(cuid())
   userId       String        @map("user_id")
   name         String
   description  String?
   albumSize    AlbumSize     @map("album_size")
   template     Template      @default(classic)
-  status       ProjectStatus @default(DRAFT)
+  status       AlbumStatus   @default(DRAFT)
   creationType CreationType  @map("creation_type") @default(SINGLE)
   group        String?       // Nome do grupo (evento, escola, etc.)
   eventName    String?       @map("event_name") // Nome do evento para criação em lote
@@ -104,14 +104,14 @@ model Project {
   // Relacionamentos
   user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   pages Page[]
-  photos Photo[] // Novo relacionamento com fotos
+  photos Photo[] // Relacionamento com fotos
 
-  @@map("projects")
+  @@map("albums")
 }
 
 model Page {
   id                  String  @id @default(cuid())
-  projectId           String  @map("project_id")
+  albumId             String  @map("album_id")
   pageNumber          Int     @map("page_number")
   layoutId            String? @map("layout_id")
   backgroundColor     String? @map("background_color")
@@ -120,38 +120,33 @@ model Page {
   updatedAt           DateTime @updatedAt @map("updated_at")
 
   // Relacionamentos
-  project         Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  album           Album            @relation(fields: [albumId], references: [id], onDelete: Cascade)
   layout          Layout?          @relation(fields: [layoutId], references: [id])
   photoPlacement  PhotoPlacement[]
 
-  @@unique([projectId, pageNumber])
+  @@unique([albumId, pageNumber])
   @@map("pages")
 }
 
 model Photo {
-  id           String   @id @default(cuid())
-  userId       String   @map("user_id")
-  projectId    String?  @map("project_id") // Novo campo para associar foto ao projeto/álbum
-  originalUrl  String   @map("original_url")
-  thumbnailUrl String   @map("thumbnail_url")
-  mediumUrl    String?  @map("medium_url") // Tornando opcional
-  filename     String
-  fileSize     Int      @map("file_size")
-  width        Int
-  height       Int
-  mimeType     String   @map("mime_type")
-  uploadedAt   DateTime @default(now()) @map("uploaded_at")
-  metadata     Json?
-  
-  // Campos para S3
-  s3Key        String?  @map("s3_key")        // Chave do arquivo no S3
-  s3Bucket     String?  @map("s3_bucket")     // Nome do bucket S3
-  s3Region     String?  @map("s3_region")     // Região do S3
-  isS3Stored   Boolean  @map("is_s3_stored") @default(false) // Flag para indicar se está no S3
+  id          String   @id @default(cuid())
+  userId      String   @map("user_id")
+  albumId     String?  @map("album_id") // Opcional para fotos não associadas a álbuns
+  filename    String
+  originalName String  @map("original_name")
+  mimeType    String   @map("mime_type")
+  size        Int
+  width       Int?
+  height      Int?
+  s3Key       String   @map("s3_key")
+  s3Url       String   @map("s3_url")
+  metadata    Json?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
 
   // Relacionamentos
   user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  project        Project?         @relation(fields: [projectId], references: [id], onDelete: SetNull) // Novo relacionamento
+  album          Album?           @relation(fields: [albumId], references: [id], onDelete: Cascade)
   photoPlacement PhotoPlacement[]
 
   @@map("photos")

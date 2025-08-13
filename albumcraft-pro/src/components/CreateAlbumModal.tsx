@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Card } from '@/components/ui/card'
 import { X, Upload, Trash2, Image as ImageIcon } from 'lucide-react'
-import { ALBUM_SIZES, getPopularSizes, getSizesByCategory, formatSizeDisplay, AlbumSizeConfig } from '@/lib/album-sizes'
+import { getPopularSizes, getSizesByCategory, formatSizeDisplay, AlbumSizeConfig } from '@/lib/album-sizes'
 import Image from 'next/image'
 
 interface User {
@@ -23,7 +23,7 @@ interface Photo {
   width: number
   height: number
   fileSize: number
-  projectId?: string | null
+  albumId?: string | null
 }
 
 // Nova interface para fotos temporárias (apenas em memória)
@@ -41,13 +41,13 @@ interface TempPhoto {
 // Interface unificada para fotos (persistidas ou temporárias)
 type PhotoItem = Photo | TempPhoto
 
-interface CreateProjectModalProps {
+interface CreateAlbumModalProps {
   isOpen: boolean
   onClose: () => void
-  onProjectCreated: () => void
+  onAlbumCreated: () => void
 }
 
-export default function CreateProjectModal({ isOpen, onClose, onProjectCreated }: CreateProjectModalProps) {
+export default function CreateAlbumModal({ isOpen, onClose, onAlbumCreated }: CreateAlbumModalProps) {
   const [formData, setFormData] = useState({
     userId: '',
     name: '',
@@ -124,8 +124,8 @@ export default function CreateProjectModal({ isOpen, onClose, onProjectCreated }
       const result = await response.json()
       
       if (result.success && result.data) {
-        // Filtrar apenas fotos que não estão associadas a nenhum projeto
-        const unassignedPhotos = result.data.filter((photo: Photo) => !photo.projectId)
+        // Filtrar apenas fotos que não estão associadas a nenhum álbum
+        const unassignedPhotos = result.data.filter((photo: Photo) => !photo.albumId)
         setExistingPhotos(unassignedPhotos)
       }
     } catch (error) {
@@ -292,53 +292,44 @@ export default function CreateProjectModal({ isOpen, onClose, onProjectCreated }
     setError('')
 
     try {
-      // Criar projeto único
-      const response = await fetch('/api/admin/projects', {
+      // Dados para criar álbum único usando endpoint do admin
+      const albumData = {
+        userId: formData.userId,
+        name: formData.name,
+        albumSize: formData.albumSize,
+        status: formData.status,
+        creationType: formData.creationType
+      }
+
+      // Criar álbum único usando endpoint admin
+      const response = await fetch('/api/admin/albums', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(albumData),
       })
 
       if (!response.ok) {
         const errorData = await response.json()
-        throw new Error(errorData.error || 'Erro ao criar projeto')
+        throw new Error(errorData.error || 'Erro ao criar álbum')
       }
 
       const result = await response.json()
+      console.log('✅ Álbum criado com sucesso:', result.album)
+
+      // Limpar formulário
+      resetForm()
+      onAlbumCreated()
       
-      // Se há fotos para fazer upload
-      if (photos.length > 0) {
-        // Upload photos one by one
-        for (const photo of photos) {
-          const formDataUpload = new FormData()
-          
-          if ('isTemp' in photo && photo.isTemp) {
-            // For temporary photos, upload the actual file
-            formDataUpload.append('file', photo.file)
-          } else {
-            // For existing photos, just associate them with the project
-            formDataUpload.append('photoId', photo.id)
-          }
-          
-          formDataUpload.append('projectId', result.project.id)
-          
-          const uploadResponse = await fetch('/api/admin/photos', {
-            method: 'POST',
-            body: formDataUpload,
-          })
-          
-          if (!uploadResponse.ok) {
-            throw new Error('Failed to upload photo')
-          }
-        }
+      // Mostrar mensagem de sucesso e redirecionar
+      alert('Álbum criado com sucesso!')
+      
+      // Redirecionar para a página de álbuns
+      if (typeof window !== 'undefined') {
+        window.location.href = '/albums'
       }
 
-      onProjectCreated()
-      onClose()
-      resetForm()
-      
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Erro desconhecido')
     } finally {
@@ -380,7 +371,7 @@ export default function CreateProjectModal({ isOpen, onClose, onProjectCreated }
            name: albumName,
            albumSize: formData.albumSize,
            status: formData.status,
-           group: formData.name, // Usar o nome do projeto como grupo
+           group: formData.name, // Usar o nome do álbum como grupo
            eventName: formData.name,
            files: files
          })
@@ -391,7 +382,7 @@ export default function CreateProjectModal({ isOpen, onClose, onProjectCreated }
         const album = albums[i]
         setCurrentAlbum(album.name)
         
-        const response = await fetch('/api/admin/projects', {
+        const response = await fetch('/api/admin/albums', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -421,13 +412,14 @@ export default function CreateProjectModal({ isOpen, onClose, onProjectCreated }
       await new Promise(resolve => setTimeout(resolve, 1000))
 
       // Redirecionar para Meus Álbuns
-      onProjectCreated()
+      onAlbumCreated()
       onClose()
       resetForm()
 
       // Redirecionar para a página de projetos
+      // window.location.href = '/albums'
       if (typeof window !== 'undefined') {
-        window.location.href = '/projects'
+        window.location.href = '/albums'
       }
 
     } catch (error) {
@@ -472,7 +464,7 @@ export default function CreateProjectModal({ isOpen, onClose, onProjectCreated }
       <Card className="w-full max-w-4xl max-h-[90vh] overflow-y-auto">
         <div className="p-6">
           <div className="flex justify-between items-center mb-6">
-            <h2 className="text-xl font-semibold">Criar Novo Projeto</h2>
+            <h2 className="text-xl font-semibold">Criar Novo Álbum</h2>
             <button
               onClick={onClose}
               className="text-gray-500 hover:text-gray-700 text-xl font-bold"
@@ -565,7 +557,7 @@ export default function CreateProjectModal({ isOpen, onClose, onProjectCreated }
                   <button
                     key={key}
                     type="button"
-                    onClick={() => setSelectedCategory(key as any)}
+                    onClick={() => setSelectedCategory(key as 'popular' | 'square' | 'landscape' | 'portrait')}
                     className={`px-3 py-1 text-sm rounded-full transition-colors ${
                       selectedCategory === key
                         ? 'bg-blue-500 text-white'
@@ -607,7 +599,7 @@ export default function CreateProjectModal({ isOpen, onClose, onProjectCreated }
 
             {/* Upload de Fotos */}
             <div>
-              <Label>Fotos do Projeto</Label>
+              <Label>Fotos do Álbum</Label>
               
               <div className="mt-2 space-y-4">
                 {/* Botões de Upload */}
@@ -645,7 +637,7 @@ export default function CreateProjectModal({ isOpen, onClose, onProjectCreated }
                 />
 
                 <p className="text-sm text-muted-foreground">
-                  Formatos aceitos: JPG, PNG. As fotos marcadas como "Temp" serão salvas apenas quando você criar o projeto.
+                  Formatos aceitos: JPG, PNG. As fotos marcadas como &quot;Temp&quot; serão salvas apenas quando você criar o álbum.
                 </p>
 
                 {/* Lista de Fotos Carregadas */}
@@ -746,7 +738,7 @@ export default function CreateProjectModal({ isOpen, onClose, onProjectCreated }
                   <p className="text-sm text-blue-800">
                     <strong>Criação Múltipla:</strong> Será criado 1 álbum a cada 10 fotos carregadas. 
                     Uma barra de progresso mostrará o andamento da criação e você será redirecionado 
-                    para "Meus Álbuns" ao final.
+                    para &quot;Meus Álbuns&quot; ao final.
                   </p>
                   {photos.length > 0 && (
                     <p className="text-xs text-blue-600 mt-1">
@@ -777,7 +769,7 @@ export default function CreateProjectModal({ isOpen, onClose, onProjectCreated }
                     ? 'Criando...' 
                     : formData.creationType === 'BATCH' 
                       ? 'Criar Múltiplos Álbuns' 
-                      : 'Criar Projeto'
+                      : 'Criar Álbum'
                 }
               </Button>
             </div>

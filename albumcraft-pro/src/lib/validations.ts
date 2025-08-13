@@ -25,8 +25,8 @@ export const VerifyResetTokenSchema = z.object({
   token: z.string().min(1, 'Token é obrigatório'),
 })
 
-// Project Schemas
-export const CreateProjectSchema = z.object({
+// Album Schemas
+export const CreateAlbumSchema = z.object({
   name: z.string().min(1, 'Nome é obrigatório').max(100, 'Nome muito longo'),
   description: z.string().max(500, 'Descrição muito longa').optional(),
   albumSize: z.enum([
@@ -46,7 +46,25 @@ export const CreateProjectSchema = z.object({
   customHeight: z.number().positive().optional(),
 })
 
-export const UpdateProjectSchema = CreateProjectSchema.partial()
+export const UpdateAlbumSchema = CreateAlbumSchema.partial()
+
+// Admin Album Schemas
+export const CreateAlbumAdminSchema = CreateAlbumSchema.extend({
+  userId: z.string().cuid('ID do usuário inválido'),
+})
+
+export const BatchAlbumRequest = z.object({
+  userId: z.string().cuid('ID do usuário inválido'),
+  albums: z.array(CreateAlbumSchema.extend({
+    files: z.array(z.object({
+      filename: z.string(),
+      buffer: z.string(), // Base64 encoded
+    })).optional(),
+    eventName: z.string().optional(),
+  })).min(1, 'Pelo menos um álbum é obrigatório'),
+  sessionId: z.string().optional(),
+  useQueue: z.boolean().optional(),
+})
 
 // Photo Schemas
 export const PhotoUploadSchema = z.object({
@@ -59,7 +77,7 @@ export const PhotoUploadSchema = z.object({
 
 // Page Schemas
 export const CreatePageSchema = z.object({
-  projectId: z.string().cuid('ID do projeto inválido'),
+  albumId: z.string().cuid('ID do álbum inválido'),
   pageNumber: z.number().positive('Número da página deve ser positivo'),
   layoutId: z.string().cuid().optional(),
   backgroundColor: z.string().optional(),
@@ -116,8 +134,10 @@ export type Login = z.infer<typeof LoginSchema>
 export type ForgotPassword = z.infer<typeof ForgotPasswordSchema>
 export type ResetPassword = z.infer<typeof ResetPasswordSchema>
 export type VerifyResetToken = z.infer<typeof VerifyResetTokenSchema>
-export type CreateProject = z.infer<typeof CreateProjectSchema>
-export type UpdateProject = z.infer<typeof UpdateProjectSchema>
+export type CreateAlbum = z.infer<typeof CreateAlbumSchema>
+export type UpdateAlbum = z.infer<typeof UpdateAlbumSchema>
+export type CreateAlbumAdmin = z.infer<typeof CreateAlbumAdminSchema>
+export type BatchAlbumRequestType = z.infer<typeof BatchAlbumRequest>
 export type PhotoUpload = z.infer<typeof PhotoUploadSchema>
 export type CreatePage = z.infer<typeof CreatePageSchema>
 export type PhotoPlacement = z.infer<typeof PhotoPlacementSchema>

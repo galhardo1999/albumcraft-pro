@@ -5,7 +5,7 @@ import { prisma } from '@/lib/prisma'
 // GET /api/user/photo-events/[id]/albums/[albumId] - Buscar fotos de um álbum específico
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string; albumId: string } }
+  { params }: { params: Promise<{ id: string; albumId: string }> }
 ) {
   try {
     const user = await authenticateRequest(request)
@@ -13,8 +13,7 @@ export async function GET(
       return NextResponse.json({ error: 'Token de autenticação inválido' }, { status: 401 })
     }
 
-    const eventId = params.id
-    const albumId = params.albumId
+    const { id: eventId, albumId } = await params
 
     // Verificar se o usuário tem acesso ao evento e álbum
     const album = await prisma.photoAlbum.findFirst({

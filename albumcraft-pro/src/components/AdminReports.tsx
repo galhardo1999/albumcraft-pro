@@ -157,7 +157,7 @@ export function AdminReports() {
             <SelectContent>
               <SelectItem value="overview">Visão Geral</SelectItem>
               <SelectItem value="users">Relatório de Usuários</SelectItem>
-              <SelectItem value="projects">Relatório de Projetos</SelectItem>
+              <SelectItem value="projects">Relatório de Álbuns</SelectItem>
               <SelectItem value="photos">Relatório de Fotos</SelectItem>
             </SelectContent>
           </Select>
@@ -211,7 +211,7 @@ export function AdminReports() {
               <span className={reportData.overview.projectGrowthRate >= 0 ? 'text-green-600' : 'text-red-600'}>
                 {reportData.overview.projectGrowthRate >= 0 ? '+' : ''}{reportData.overview.projectGrowthRate.toFixed(1)}%
               </span>
-              {' '}em relação ao período anterior
+               {' '}em relação ao período anterior
             </p>
           </CardContent>
         </Card>

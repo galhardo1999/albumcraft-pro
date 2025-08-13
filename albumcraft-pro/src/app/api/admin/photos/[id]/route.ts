@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { PrismaClient } from '@prisma/client'
 import { authenticateRequest, createAuthResponse } from '@/lib/auth-middleware'
-
-const prisma = new PrismaClient()
+import { prisma } from '@/lib/prisma'
 
 // PATCH - Atualizar foto (admin pode atualizar fotos de qualquer usuário)
 export async function PATCH(
@@ -32,12 +30,12 @@ export async function PATCH(
     const params = await context.params;
     const photoId = params.id
     const body = await request.json()
-    const { projectId } = body
+    const { albumId } = body
 
     console.log('🔄 PATCH /api/admin/photos/[id] - Parâmetros:', {
       adminUserId: user.userId,
       photoId,
-      projectId
+      albumId
     })
 
     // Verificar se a foto existe
@@ -52,19 +50,19 @@ export async function PATCH(
       }, { status: 404 })
     }
 
-    // Se projectId foi fornecido, verificar se o projeto existe e pertence ao mesmo usuário da foto
-    if (projectId) {
-      const project = await prisma.project.findFirst({
+    // Se albumId foi fornecido, verificar se o projeto existe e pertence ao mesmo usuário da foto
+    if (albumId) {
+      const album = await prisma.album.findFirst({
         where: {
-          id: projectId,
+          id: albumId,
           userId: existingPhoto.userId
         }
       })
 
-      if (!project) {
+      if (!album) {
         return NextResponse.json({
           success: false,
-          error: 'Projeto não encontrado ou não pertence ao usuário da foto'
+          error: 'Álbum não encontrado ou não pertence ao usuário da foto'
         }, { status: 404 })
       }
     }
@@ -73,20 +71,18 @@ export async function PATCH(
     const updatedPhoto = await prisma.photo.update({
       where: { id: photoId },
       data: {
-        projectId: projectId || null
+        albumId: albumId || null
       },
       select: {
         id: true,
         filename: true,
-        originalUrl: true,
-        thumbnailUrl: true,
-        mediumUrl: true,
+        s3Url: true,
         width: true,
         height: true,
-        fileSize: true,
-        projectId: true,
+        size: true,
+        albumId: true,
         userId: true,
-        uploadedAt: true,
+        createdAt: true,
         user: {
           select: {
             name: true,

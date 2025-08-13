@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { withAuth } from '@/lib/auth-middleware'
-import { CreateProjectSchema } from '@/lib/validations'
+import { CreateAlbumSchema } from '@/lib/validations'
 
-// GET /api/projects - Listar projetos do usuário
+// GET /api/albums - Listar álbuns do usuário
 export const GET = withAuth(async (request: NextRequest, user) => {
   try {
     const { searchParams } = new URL(request.url)
@@ -11,33 +11,33 @@ export const GET = withAuth(async (request: NextRequest, user) => {
     const limit = parseInt(searchParams.get('limit') || '10')
     const skip = (page - 1) * limit
     
-    const [projects, total] = await Promise.all([
-      prisma.project.findMany({
+    const [albums, total] = await Promise.all([
+      prisma.album.findMany({
         where: { userId: user.userId },
         include: {
           pages: {
             select: { id: true }
           },
           photos: {
-            select: { id: true, filename: true, thumbnailUrl: true },
+            select: { id: true, filename: true, s3Url: true },
             take: 3
           },
           _count: {
             select: { pages: true }
           }
         },
-        orderBy: { updatedAt: 'desc' },
+        orderBy: { createdAt: 'desc' },
         skip,
         take: limit,
       }),
-      prisma.project.count({
+      prisma.album.count({
         where: { userId: user.userId }
       })
     ])
     
     return NextResponse.json({
       success: true,
-      data: projects,
+      data: albums,
       meta: {
         pagination: {
           page,
@@ -48,44 +48,44 @@ export const GET = withAuth(async (request: NextRequest, user) => {
       }
     })
   } catch (error) {
-    console.error('Get projects error:', error)
+    console.error('Get albums error:', error)
     return NextResponse.json({
       success: false,
       error: {
         code: 'INTERNAL_ERROR',
-        message: 'Erro ao buscar projetos'
+        message: 'Erro ao buscar álbuns'
       }
     }, { status: 500 })
   }
 })
 
-// POST /api/projects - Criar novo projeto
+// POST /api/albums - Criar novo álbum
 export const POST = withAuth(async (request: NextRequest, user) => {
   try {
     const body = await request.json()
     
     // Validar dados de entrada
-    const validatedData = CreateProjectSchema.parse(body)
+    const validatedData = CreateAlbumSchema.parse(body)
     
     // Verificar limites do plano
     if (user.plan === 'FREE') {
-      const projectCount = await prisma.project.count({
+      const albumCount = await prisma.album.count({
         where: { userId: user.userId }
       })
       
-      if (projectCount >= 3) {
+      if (albumCount >= 3) {
         return NextResponse.json({
           success: false,
           error: {
             code: 'PLAN_LIMIT_EXCEEDED',
-            message: 'Limite de projetos atingido para o plano gratuito'
+            message: 'Limite de álbuns atingido para o plano gratuito'
           }
         }, { status: 403 })
       }
     }
     
-    // Criar projeto
-    const project = await prisma.project.create({
+    // Criar álbum
+    const album = await prisma.album.create({
       data: {
         userId: user.userId,
         name: validatedData.name,
@@ -108,11 +108,11 @@ export const POST = withAuth(async (request: NextRequest, user) => {
     
     return NextResponse.json({
       success: true,
-      project: project
+      album: album
     }, { status: 201 })
     
   } catch (error) {
-    console.error('Create project error:', error)
+    console.error('Create album error:', error)
     
     if (error instanceof Error && error.name === 'ZodError') {
       return NextResponse.json({
@@ -129,7 +129,7 @@ export const POST = withAuth(async (request: NextRequest, user) => {
       success: false,
       error: {
         code: 'INTERNAL_ERROR',
-        message: 'Erro ao criar projeto'
+        message: 'Erro ao criar álbum'
       }
     }, { status: 500 })
   }

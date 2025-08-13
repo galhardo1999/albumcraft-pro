@@ -49,7 +49,7 @@ export default function ProjectsPage() {
   const fetchProjects = useCallback(async () => {
     try {
       setIsLoading(true);
-      const response = await fetch('/api/projects?limit=1000');
+      const response = await fetch('/api/albums?limit=1000');
       if (response.ok) {
         const data = await response.json();
         setProjects(data.data || []);
@@ -146,7 +146,7 @@ export default function ProjectsPage() {
 
     setIsDeleting(true)
     try {
-      const response = await fetch(`/api/projects/${projectToDelete.id}`, {
+      const response = await fetch(`/api/albums/${projectToDelete.id}`, {
         method: 'DELETE',
         credentials: 'include',
         headers: {
@@ -187,7 +187,7 @@ export default function ProjectsPage() {
       const projectsToDelete = projects.filter(p => p.group === groupToDelete)
       
       for (const project of projectsToDelete) {
-        const response = await fetch(`/api/projects/${project.id}`, {
+        const response = await fetch(`/api/albums/${project.id}`, {
           method: 'DELETE',
           credentials: 'include',
           headers: {
@@ -282,13 +282,7 @@ export default function ProjectsPage() {
             {/* Navigation Links */}
             <div className="hidden md:flex items-center space-x-8">
               <Link 
-                href="/dashboard" 
-                className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-              >
-                Dashboard
-              </Link>
-              <Link 
-                href="/projects" 
+                href="/albums" 
                 className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
               >
                 Meus Álbuns
@@ -337,7 +331,7 @@ export default function ProjectsPage() {
               Gerencie seus projetos de álbuns
             </p>
           </div>
-          <Link href="/projects/new">
+          <Link href="/albums/new">
             <Button>Criar Novo Projeto</Button>
           </Link>
         </div>
@@ -395,7 +389,7 @@ export default function ProjectsPage() {
               }
             </p>
             {projects.length === 0 && (
-              <Link href="/projects/new">
+              <Link href="/albums/new">
                 <Button>Criar Primeiro Álbum</Button>
               </Link>
             )}
@@ -450,7 +444,7 @@ export default function ProjectsPage() {
                 {expandedGroups.has(groupName) && (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 ml-4">
                     {grouped[groupName].map((project) => (
-                      <Link key={project.id} href={`/projects/${project.id}`}>
+                      <Link key={project.id} href={`/albums/${project.id}`}>
                         <div className="rounded-xl border bg-card hover:bg-accent/50 transition-colors group cursor-pointer">
                           {project.photos && project.photos.length > 0 && (
                             <div className="flex gap-1 h-32 overflow-hidden rounded-t-xl bg-gray-100">
@@ -528,7 +522,7 @@ export default function ProjectsPage() {
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {ungrouped.map((project) => (
-                    <Link key={project.id} href={`/projects/${project.id}`}>
+                    <Link key={project.id} href={`/albums/${project.id}`}>
                       <div className="rounded-xl border bg-card hover:bg-accent/50 transition-colors group cursor-pointer">
                         {project.photos && project.photos.length > 0 && (
                           <div className="flex gap-1 h-32 overflow-hidden rounded-t-xl bg-gray-100">

@@ -149,7 +149,7 @@ export default function EventoDetalhePage({ params }: { params: Promise<{ id: st
                 Dashboard
               </Link>
               <Link 
-                href="/projects" 
+                href="/albums" 
                 className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
               >
                 Meus Álbuns

@@ -79,7 +79,7 @@ export default function FotosDisponiveisPage() {
                 Dashboard
               </Link>
               <Link 
-                href="/projects" 
+                href="/albums" 
                 className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
               >
                 Meus Álbuns

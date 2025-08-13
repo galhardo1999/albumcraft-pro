@@ -49,17 +49,17 @@ export default function DashboardPage() {
     try {
       setIsLoading(true)
       
-      // Buscar projetos
-      const projectsResponse = await fetch('/api/projects', {
+      // Buscar álbuns
+      const albumsResponse = await fetch('/api/albums', {
         credentials: 'include'
       })
       
-      if (!projectsResponse.ok) {
-        throw new Error('Erro ao carregar projetos')
+      if (!albumsResponse.ok) {
+        throw new Error('Erro ao carregar álbuns')
       }
       
-      const projectsData = await projectsResponse.json()
-      setProjects(projectsData.data || [])
+      const albumsData = await albumsResponse.json()
+      setProjects(albumsData.data || [])
       
       // Buscar estatísticas
       const statsResponse = await fetch('/api/dashboard/stats', {
@@ -158,7 +158,7 @@ export default function DashboardPage() {
                 Dashboard
               </Link>
               <Link 
-                href="/projects" 
+                href="/albums" 
                 className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
               >
                 Meus Álbuns
@@ -270,7 +270,7 @@ export default function DashboardPage() {
           <h2 className="text-lg font-semibold mb-4">Ações Rápidas</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-w-4xl">
             <Link
-              href="/projects/new"
+              href="/albums/new"
               className="rounded-xl border bg-card p-6 text-center hover:bg-accent transition-colors group"
             >
               <div className="p-3 bg-primary/10 rounded-lg w-fit mx-auto mb-3 group-hover:bg-primary/20 transition-colors">
@@ -283,7 +283,7 @@ export default function DashboardPage() {
             </Link>
             
             <Link
-              href="/projects"
+              href="/albums"
               className="rounded-xl border bg-card p-6 text-center hover:bg-accent transition-colors group"
             >
               <div className="p-3 bg-blue-100 rounded-lg w-fit mx-auto mb-3 group-hover:bg-blue-200 transition-colors">

@@ -10,7 +10,7 @@ interface Photo {
   width: number
   height: number
   fileSize: number
-  projectId?: string | null
+  albumId?: string | null
   thumbnailUrl?: string
   mediumUrl?: string
 }

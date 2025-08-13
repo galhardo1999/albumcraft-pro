@@ -93,14 +93,14 @@ export async function getSignedDownloadUrl(
 }
 
 // Gerar chave única para o arquivo
-export function generateS3Key(userId: string, filename: string, projectId?: string): string {
+export function generateS3Key(userId: string, filename: string, albumId?: string): string {
   const timestamp = Date.now()
   const randomString = Math.random().toString(36).substring(2, 15)
   const extension = filename.split('.').pop()
   
-  if (projectId) {
-    // Estrutura organizada por projeto: users/{userId}/projects/{projectId}/photos/
-    return `users/${userId}/projects/${projectId}/photos/${timestamp}-${randomString}.${extension}`
+  if (albumId) {
+    // Estrutura organizada por álbum: users/{userId}/albums/{albumId}/photos/
+    return `users/${userId}/albums/${albumId}/photos/${timestamp}-${randomString}.${extension}`
   } else {
     // Fotos gerais do usuário (sem projeto específico)
     return `users/${userId}/photos/${timestamp}-${randomString}.${extension}`

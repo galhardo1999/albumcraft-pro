@@ -6,7 +6,7 @@ export async function GET(request: NextRequest) {
   try {
     const adminCheck = await requireAdmin(request)
     
-    if ('error' in adminCheck) {
+    if (adminCheck instanceof NextResponse) {
       return adminCheck
     }
 

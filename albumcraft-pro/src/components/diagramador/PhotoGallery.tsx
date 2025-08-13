@@ -12,7 +12,7 @@ interface Photo {
   width: number
   height: number
   fileSize: number
-  projectId?: string | null
+  albumId?: string | null
   thumbnailUrl?: string
   mediumUrl?: string
 }
@@ -22,10 +22,10 @@ interface PhotoGalleryProps {
   onPhotoDragStart: (photo: Photo) => void
   onPhotoDragEnd?: () => void
   onPhotoImport: (newPhotos: Photo[]) => void
-  projectId?: string // Novo prop para associar fotos ao projeto
+  albumId?: string // Novo prop para associar fotos ao álbum
 }
 
-export default function PhotoGallery({ photos, onPhotoDragStart, onPhotoDragEnd, onPhotoImport, projectId }: PhotoGalleryProps) {
+export default function PhotoGallery({ photos, onPhotoDragStart, onPhotoDragEnd, onPhotoImport, albumId }: PhotoGalleryProps) {
   const [searchTerm, setSearchTerm] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -50,9 +50,9 @@ export default function PhotoGallery({ photos, onPhotoDragStart, onPhotoDragEnd,
         formData.append('files', files[i])
       }
       
-      // Incluir projectId se fornecido
-      if (projectId) {
-        formData.append('projectId', projectId)
+      // Incluir albumId se fornecido
+    if (albumId) {
+      formData.append('albumId', albumId)
       }
       
       // A API irá buscar automaticamente o primeiro usuário disponível

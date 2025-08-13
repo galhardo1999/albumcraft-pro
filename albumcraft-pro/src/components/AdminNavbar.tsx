@@ -11,9 +11,9 @@ import {
   LogOut,
   Menu,
   X,
-  Image,
-  Images
+  Image
 } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
 
 interface AdminSidebarProps {
   activeTab?: string;
@@ -23,14 +23,10 @@ interface AdminSidebarProps {
 export function AdminNavbar({ activeTab = 'overview', onTabChange }: AdminSidebarProps) {
   const router = useRouter();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-
+  const { logout } = useAuth();
+ 
   const handleLogout = async () => {
-    try {
-      await fetch('/api/auth/logout', { method: 'POST' });
-      router.push('/auth/login');
-    } catch (error) {
-      console.error('Erro ao fazer logout:', error);
-    }
+    await logout();
   };
 
   const navigationItems = [
@@ -47,10 +43,10 @@ export function AdminNavbar({ activeTab = 'overview', onTabChange }: AdminSideba
       href: '/admin/usuarios'
     },
     {
-      id: 'projects',
-      label: 'Projetos',
+      id: 'albums',
+      label: 'Álbuns',
       icon: FolderOpen,
-      href: '/admin/projetos'
+      href: '/admin/albums'
     },
     {
       id: 'photos',

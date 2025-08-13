@@ -3,22 +3,14 @@
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
+import { useAuth } from '@/hooks/useAuth'
 
 export default function NewProjectPage() {
   const router = useRouter()
+  const { logout } = useAuth()
 
   const handleLogout = async () => {
-    try {
-      await fetch('/api/auth/logout', { 
-        method: 'POST',
-        credentials: 'include'
-      })
-      
-      document.cookie = 'auth-token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;'
-      router.push('/auth/login')
-    } catch (err) {
-      console.error('Logout error:', err)
-    }
+    await logout()
   }
 
   return (
@@ -41,7 +33,7 @@ export default function NewProjectPage() {
                 Dashboard
               </Link>
               <Link 
-                href="/projects" 
+                href="/albums" 
                 className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
               >
                 Meus Álbuns
@@ -120,7 +112,7 @@ export default function NewProjectPage() {
             </div>
 
             <Button 
-              onClick={() => router.push('/projects/new/single')}
+              onClick={() => router.push('/albums/new/single')}
               className="w-full"
               size="lg"
             >
@@ -164,7 +156,7 @@ export default function NewProjectPage() {
             </div>
 
             <Button 
-              onClick={() => router.push('/projects/new/batch')}
+              onClick={() => router.push('/albums/new/batch')}
               variant="outline"
               className="w-full border-blue-200 text-blue-600 hover:bg-blue-50"
               size="lg"

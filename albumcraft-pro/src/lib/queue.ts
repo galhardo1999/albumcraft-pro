@@ -121,7 +121,6 @@ class InMemoryQueue {
   }
 
   private async processAlbum(data: AlbumCreationJobData): Promise<void> {
-    const startTime = Date.now()
     const { userId, eventName, albumName, files, sessionId } = data;
 
     console.log(`\n🎯 Iniciando processamento do álbum: ${albumName}`)
@@ -136,7 +135,7 @@ class InMemoryQueue {
       // 1. Criar o projeto/álbum no banco de dados PRIMEIRO (igual ao sistema individual)
       console.log('Criando álbum no banco de dados...');
       
-      const project = await prisma.project.create({
+      const album = await prisma.album.create({
         data: {
           userId,
           name: albumName,
@@ -149,20 +148,25 @@ class InMemoryQueue {
         }
       });
 
-      console.log(`✅ Projeto criado: ${project.id} - ${albumName}`);
-      console.log('Álbum criado com sucesso!');
+      console.log(`✅ Álbum criado: ${album.id} - ${albumName}`);
 
       // 2. Processar fotos em paralelo usando a mesma lógica do sistema individual
       const { uploadToS3, generateS3Key, generateThumbnailKey, isS3Configured } = await import('./s3');
       const { processImage, createThumbnail, getImageMetadata, isValidImageFormat, isValidFileSize, sanitizeFileName } = await import('./image-processing');
       
       const totalFiles = files.length;
-      const errors: string[] = [];
 
       console.log(`🚀 Processando ${totalFiles} fotos em paralelo (concorrência: ${this.photosConcurrency})`);
 
+      type IncomingFile = {
+        name: string
+        size: number
+        type: string
+        buffer: Buffer
+      }
+
       // Função para processar uma única foto
-      const processPhoto = async (file: any, index: number) => {
+      const processPhoto = async (file: IncomingFile, index: number) => {
         try {
           // Verificar memória disponível
           const estimatedMemoryUsage = file.buffer.length * 3 // Estimativa: 3x o tamanho do arquivo
@@ -177,13 +181,13 @@ class InMemoryQueue {
           // Validar tipo de arquivo
           if (!isValidImageFormat(file.type)) {
             console.log(`❌ Formato não suportado: ${file.type}`);
-            return { error: `${file.name}: Formato não suportado` };
+            return { error: `${file.name}: Formato não suportado` } as const;
           }
 
           // Validar tamanho do arquivo
           if (!isValidFileSize(file.buffer.length)) {
             console.log(`❌ Arquivo muito grande: ${file.buffer.length} bytes`);
-            return { error: `${file.name}: Arquivo muito grande (máximo 50MB)` };
+            return { error: `${file.name}: Arquivo muito grande (máximo 50MB)` } as const;
           }
 
           console.log(`✅ Validações passaram, processando imagem...`);
@@ -197,15 +201,13 @@ class InMemoryQueue {
           console.log(`🧹 Nome sanitizado: ${sanitizedFileName}`);
 
           let originalUrl: string;
-          let thumbnailUrl: string;
-          let mediumUrl: string | null = null;
           let s3Key: string | null = null;
 
           if (isS3Configured()) {
-            // **UPLOAD PARA S3** - Processamento paralelo das 3 versões
+            // UPLOAD PARA S3
             console.log(`☁️ Fazendo upload para S3: ${file.name}`);
             
-            // Processar todas as versões em paralelo
+            // Processar versões necessárias
             const [processedImage, thumbnail, mediumImage] = await Promise.all([
               processImage(file.buffer, { format: 'jpeg', quality: 85 }),
               createThumbnail(file.buffer),
@@ -213,126 +215,78 @@ class InMemoryQueue {
             ]);
             
             // Gerar chaves S3
-            const originalKey = generateS3Key(userId, sanitizedFileName, project.id);
+            const originalKey = generateS3Key(userId, sanitizedFileName, album.id);
             const thumbnailKey = generateThumbnailKey(originalKey);
             const mediumKey = originalKey.replace(/(\.[^.]+)$/, '_medium$1');
             s3Key = originalKey;
             
             // Upload para S3 em paralelo
-            const [originalUpload, thumbnailUpload, mediumUpload] = await Promise.all([
+            const [originalUpload] = await Promise.all([
               uploadToS3(processedImage.buffer, originalKey, processedImage.contentType),
               uploadToS3(thumbnail.buffer, thumbnailKey, thumbnail.contentType),
               uploadToS3(mediumImage.buffer, mediumKey, mediumImage.contentType)
             ]);
             
             originalUrl = originalUpload;
-            thumbnailUrl = thumbnailUpload;
-            mediumUrl = mediumUpload;
             
             console.log(`✅ Upload S3 concluído: ${file.name}`);
             
           } else {
-            // **FALLBACK BASE64** - Processamento paralelo das 3 versões
+            // FALLBACK BASE64
             console.log(`💾 S3 não configurado, usando Base64: ${file.name}`);
             
-            const [processedImage, thumbnail, mediumImage] = await Promise.all([
-              processImage(file.buffer, { maxWidth: 1200, maxHeight: 1200, format: 'jpeg', quality: 80 }),
-              createThumbnail(file.buffer),
-              processImage(file.buffer, { maxWidth: 800, maxHeight: 800, format: 'jpeg', quality: 75 })
+            const [processedImage] = await Promise.all([
+              processImage(file.buffer, { maxWidth: 1200, maxHeight: 1200, format: 'jpeg', quality: 80 })
             ]);
             
             originalUrl = `data:${processedImage.contentType};base64,${processedImage.buffer.toString('base64')}`;
-            thumbnailUrl = `data:${thumbnail.contentType};base64,${thumbnail.buffer.toString('base64')}`;
-            mediumUrl = `data:${mediumImage.contentType};base64,${mediumImage.buffer.toString('base64')}`;
           }
 
-          // **SALVAR FOTO NO BANCO DE DADOS**
+          // SALVAR FOTO NO BANCO DE DADOS
           const photo = await prisma.photo.create({
             data: {
               userId,
-              projectId: project.id,
+              albumId: album.id,
               filename: sanitizedFileName,
-              originalUrl,
-              thumbnailUrl,
-              mediumUrl,
-              fileSize: originalMetadata.size,
+              originalName: file.name,
+              mimeType: file.type,
+              size: originalMetadata.size,
               width: originalMetadata.width,
               height: originalMetadata.height,
-              mimeType: file.type,
-              s3Key,
-              s3Bucket: isS3Configured() ? process.env.AWS_S3_BUCKET_NAME || null : null,
-              s3Region: isS3Configured() ? process.env.AWS_REGION || null : null,
-              isS3Stored: isS3Configured(),
+              s3Key: s3Key || '',
+              s3Url: originalUrl,
             }
           });
 
           console.log(`✅ Foto salva no banco: ${photo.id} - ${file.name}`);
-          return { success: true, photo };
+          return { success: true as const, photo };
 
         } catch (fileError) {
+          const message = fileError instanceof Error ? fileError.message : 'Erro desconhecido'
           console.error(`❌ Erro ao processar arquivo ${file.name}:`, fileError);
-          return { error: `Erro na foto ${file.name}: ${fileError instanceof Error ? fileError.message : 'Erro desconhecido'}` };
+          return { error: `Erro na foto ${file.name}: ${message}` } as const;
         }
       };
 
       // Processar fotos em lotes paralelos
-      const results = [];
+      const results: Array<{ success: true; photo: unknown } | { error: string }> = [];
       for (let i = 0; i < files.length; i += this.photosConcurrency) {
         const batch = files.slice(i, i + this.photosConcurrency);
         const batchPromises = batch.map((file, batchIndex) => 
-          processPhoto(file, i + batchIndex)
+          processPhoto(file as IncomingFile, i + batchIndex)
         );
-        
         const batchResults = await Promise.all(batchPromises);
         results.push(...batchResults);
-        
-        console.log(`📊 Lote ${Math.floor(i / this.photosConcurrency) + 1} processado: ${batchResults.length} fotos`);
       }
 
-      // Contar sucessos e erros
-       const uploadedCount = results.filter(r => r.success).length;
-       const batchErrors = results.filter(r => r.error).map(r => r.error!);
-       errors.push(...batchErrors);
-
-      // 3. Finalizar o projeto (igual ao sistema individual)
-      console.log('Finalizando álbum...');
-      
-      await prisma.project.update({
-        where: { id: project.id },
-        data: {
-          status: 'COMPLETED',
-          updatedAt: new Date(),
-        }
-      });
-
-      const successMessage = errors.length > 0 
-        ? `Álbum concluído! ${uploadedCount}/${totalFiles} fotos processadas. ${errors.length} erros.`
-        : `Álbum concluído! ${uploadedCount} fotos processadas com sucesso.`;
-
-      console.log(successMessage);
-      
-      const endTime = Date.now()
-      const processingTime = (endTime - startTime) / 1000
-      const photosPerSecond = files.length / processingTime
-      
-      console.log(`🎉 Álbum processado: ${albumName}`);
-      console.log(`⏱️ Tempo total: ${processingTime.toFixed(2)}s`);
-      console.log(`🚀 Velocidade: ${photosPerSecond.toFixed(2)} fotos/segundo`);
-      console.log(`📊 Estatísticas:`);
-      console.log(`   - Projeto ID: ${project.id}`);
-      console.log(`   - Fotos processadas: ${uploadedCount}/${totalFiles}`);
-      console.log(`   - Erros: ${errors.length}`);
-      
-      if (errors.length > 0) {
-        console.log(`❌ Erros encontrados:`, errors);
+      const failed = results.filter(r => 'error' in r);
+      if (failed.length) {
+        console.warn(`⚠️ ${failed.length} fotos falharam no processamento.`);
       }
 
-    } catch (error) {
-      console.error(`❌ Erro ao processar álbum ${albumName}:`, error);
-      
-      console.error(`Erro ao processar álbum: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
-      
-      throw error;
+    } catch (err) {
+      console.error('Erro no processamento do álbum:', err);
+      throw err;
     }
   }
 
@@ -342,128 +296,70 @@ class InMemoryQueue {
       active: this.processing.size,
       completed: this.completed.length,
       failed: this.failed.length,
-    };
+    }
   }
 
-  // Obter estatísticas por sessionId
   async getStatsBySession(sessionId: string): Promise<QueueStats & { totalJobs: number }> {
-    const allJobs = [
+    const relatedJobs = [
       ...this.queue,
       ...Array.from(this.processing.values()),
       ...this.completed,
-      ...this.failed
-    ].filter(job => job.data.sessionId === sessionId);
-
-    const waiting = this.queue.filter(job => job.data.sessionId === sessionId).length;
-    const active = Array.from(this.processing.values()).filter(job => job.data.sessionId === sessionId).length;
-    const completed = this.completed.filter(job => job.data.sessionId === sessionId).length;
-    const failed = this.failed.filter(job => job.data.sessionId === sessionId).length;
+      ...this.failed,
+    ].filter(job => job.data.sessionId === sessionId)
 
     return {
-      waiting,
-      active,
-      completed,
-      failed,
-      totalJobs: allJobs.length
-    };
+      waiting: relatedJobs.filter(j => j.status === 'waiting').length,
+      active: relatedJobs.filter(j => j.status === 'processing').length,
+      completed: relatedJobs.filter(j => j.status === 'completed').length,
+      failed: relatedJobs.filter(j => j.status === 'failed').length,
+      totalJobs: relatedJobs.length,
+    }
   }
 
-  // Limpar jobs antigos (manter apenas os últimos 100 de cada tipo)
   cleanup(): void {
-    if (this.completed.length > 100) {
-      this.completed = this.completed.slice(-100);
-    }
-    if (this.failed.length > 100) {
-      this.failed = this.failed.slice(-100);
-    }
+    this.queue = []
+    this.processing.clear()
+    this.completed = []
+    this.failed = []
   }
 }
 
-// Instância global da fila
 const albumQueue = new InMemoryQueue();
 
-// Função para adicionar job à fila
 export const addAlbumCreationJob = async (
   data: AlbumCreationJobData,
   priority: number = 0
 ): Promise<{ id: string; status: string } | null> => {
   try {
-    console.log(`⚡ Processando álbum: ${data.albumName}`);
-    return await albumQueue.add(data, priority);
+    return await albumQueue.add(data, priority)
   } catch (error) {
-    console.error('❌ Erro ao adicionar job à fila:', error);
-    return null;
+    console.error('Erro ao adicionar job à fila:', error)
+    return null
   }
 }
 
-// Processamento síncrono como fallback
 export const processAlbumSynchronously = async (data: AlbumCreationJobData) => {
-  const { userId, eventName, albumName, files } = data
-
   try {
-    console.log(`🔄 Processando álbum sincronamente: ${albumName}`)
-
-    // Simular processamento de álbum
-    console.log(`📸 Processando ${files.length} arquivos para o álbum: ${albumName}`)
-    
-    // Simular delay de processamento
-    const processingTime = Math.min(files.length * 200, 2000); // Max 2 segundos
-    await new Promise(resolve => setTimeout(resolve, processingTime))
-    
-    console.log(`✅ Álbum ${albumName} processado com sucesso`)
-    
-    return {
-      id: `project_${Date.now()}`,
-      name: albumName,
-      eventName,
-      userId,
-      status: 'COMPLETED',
-      photoCount: files.length
-    }
-
+    // Processar diretamente sem fila
+    // @ts-expect-error Acesso ao método privado apenas para processamento síncrono controlado
+    await albumQueue.processAlbum(data)
+    return { status: 'completed' as const }
   } catch (error) {
-    console.error(`❌ Erro ao processar álbum ${albumName}:`, error)
-    throw error
+    console.error('Erro no processamento síncrono:', error)
+    return { status: 'failed' as const, error }
   }
 }
 
-// Obter estatísticas da fila
 export const getQueueStats = async (): Promise<QueueStats> => {
-  try {
-    return await albumQueue.getStats();
-  } catch (error) {
-    console.error('❌ Erro ao obter estatísticas da fila:', error)
-    return {
-      waiting: 0,
-      active: 0,
-      completed: 0,
-      failed: 0
-    }
-  }
+  return albumQueue.getStats()
 }
 
-// Obter estatísticas por sessionId
 export const getQueueStatsBySession = async (sessionId: string): Promise<QueueStats & { totalJobs: number }> => {
-  try {
-    return await albumQueue.getStatsBySession(sessionId);
-  } catch (error) {
-    console.error('❌ Erro ao obter estatísticas da fila por sessionId:', error)
-    return {
-      waiting: 0,
-      active: 0,
-      completed: 0,
-      failed: 0,
-      totalJobs: 0
-    }
-  }
+  return albumQueue.getStatsBySession(sessionId)
 }
 
-// Função para limpeza periódica
 export const cleanupQueue = () => {
-  albumQueue.cleanup();
+  albumQueue.cleanup()
 }
 
-// Limpar a fila a cada 5 minutos
-if (typeof window === 'undefined') { // Apenas no servidor
-  setInterval(cleanupQueue, 5 * 60 * 1000);
-}
+export default albumQueue

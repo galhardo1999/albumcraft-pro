@@ -21,7 +21,7 @@ export default function ProjectCreationTypeModal({
       <Card className="w-full max-w-md">
         <div className="p-6">
           <div className="flex justify-between items-center mb-6">
-            <h2 className="text-xl font-semibold">Criar Projeto</h2>
+            <h2 className="text-xl font-semibold">Criar Álbum</h2>
             <button
               onClick={onClose}
               className="text-gray-500 hover:text-gray-700 text-xl font-bold"
@@ -32,7 +32,7 @@ export default function ProjectCreationTypeModal({
 
           <div className="space-y-4">
             <p className="text-gray-600 text-center mb-6">
-              Escolha o tipo de projeto que deseja criar:
+              Escolha o tipo de álbum que deseja criar:
             </p>
 
             {/* Opção Álbum Único */}
@@ -49,7 +49,7 @@ export default function ProjectCreationTypeModal({
                     Criar Álbum Único
                   </h3>
                   <p className="text-sm text-gray-600 mt-1">
-                    Criar um projeto individual para um usuário específico
+                    Criar um álbum individual para um usuário específico
                   </p>
                 </div>
               </div>
@@ -69,7 +69,7 @@ export default function ProjectCreationTypeModal({
                     Criar Múltiplos Álbuns
                   </h3>
                   <p className="text-sm text-gray-600 mt-1">
-                    Criar projetos em lote para múltiplos usuários
+                    Criar álbuns em lote para múltiplos usuários
                   </p>
                 </div>
               </div>

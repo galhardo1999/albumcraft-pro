@@ -11,8 +11,8 @@ export async function GET(
     // Verificar se é admin
     const adminCheck = await requireAdmin(request);
     
-    if ('error' in adminCheck) {
-      return adminCheck;
+    if (adminCheck instanceof NextResponse) {
+      return adminCheck
     }
 
     const params = await context.params;
@@ -46,14 +46,13 @@ export async function GET(
       select: {
         id: true,
         filename: true,
-        originalName: true,
-        url: true,
+        originalUrl: true,
         thumbnailUrl: true,
         width: true,
         height: true,
         fileSize: true,
         uploadedAt: true,
-        projectId: true,
+        albumId: true,
         project: {
           select: {
             id: true,

@@ -74,16 +74,16 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
   const loadProject = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`/api/admin/projects/${resolvedParams.id}`);
+      const response = await fetch(`/api/admin/albums/${resolvedParams.id}`);
       
       if (response.ok) {
         const data = await response.json();
-        setProject(data.project);
+        setProject(data.album);
         setFormData({
-          name: data.project.name,
-          description: data.project.description || '',
-          status: data.project.status,
-          albumSize: data.project.albumSize
+          name: data.album.name,
+        description: data.album.description || '',
+        status: data.album.status,
+        albumSize: data.album.albumSize
         });
       } else {
         router.push('/admin/projetos');
@@ -98,7 +98,7 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
 
   const handleSave = async () => {
     try {
-      const response = await fetch(`/api/admin/projects/${resolvedParams.id}`, {
+      const response = await fetch(`/api/admin/albums/${resolvedParams.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json'
@@ -108,7 +108,7 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
 
       if (response.ok) {
         const data = await response.json();
-        setProject({ ...project!, ...data.project });
+        setProject({ ...project!, ...data.album });
         setEditing(false);
       } else {
         alert('Erro ao salvar alterações');
@@ -125,7 +125,7 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
     }
 
     try {
-      const response = await fetch(`/api/admin/projects/${resolvedParams.id}`, {
+      const response = await fetch(`/api/admin/albums/${resolvedParams.id}`, {
         method: 'DELETE'
       });
 
@@ -211,7 +211,7 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
   return (
     <AdminProtectedRoute>
       <div className="min-h-screen bg-gray-50">
-        <AdminNavbar activeTab="projects" onTabChange={() => {}} />
+        <AdminNavbar activeTab="albums" onTabChange={() => {}} />
         
         <div className="lg:pl-64">
           <main className="py-6">
@@ -543,7 +543,7 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
                         <Button
                           variant="outline"
                           className="w-full justify-start"
-                          onClick={() => window.open(`/projects/${project.id}`, '_blank')}
+                          onClick={() => window.open(`/albums/${project.id}`, '_blank')}
                         >
                           <Eye className="h-4 w-4 mr-2" />
                           Visualizar Projeto

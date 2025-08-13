@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, use } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import DiagramadorWorkspace from '@/components/diagramador/DiagramadorWorkspace'
+import { useAuth } from '@/hooks/useAuth'
 
 interface Project {
   id: string
@@ -23,6 +24,7 @@ interface Project {
 export default function ProjectDiagramadorPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params)
   const router = useRouter()
+  const { logout } = useAuth()
   const [project, setProject] = useState<Project | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
@@ -30,7 +32,7 @@ export default function ProjectDiagramadorPage({ params }: { params: Promise<{ i
   const fetchProject = useCallback(async () => {
     try {
       setIsLoading(true)
-      const response = await fetch(`/api/projects/${resolvedParams.id}`)
+      const response = await fetch(`/api/albums/${resolvedParams.id}`)
       
       if (response.ok) {
         const data = await response.json()
@@ -64,17 +66,7 @@ export default function ProjectDiagramadorPage({ params }: { params: Promise<{ i
   }, [])
 
   const handleLogout = async () => {
-    try {
-      await fetch('/api/auth/logout', { 
-        method: 'POST',
-        credentials: 'include'
-      })
-      
-      document.cookie = 'auth-token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;'
-      router.push('/auth/login')
-    } catch (err) {
-      console.error('Logout error:', err)
-    }
+    await logout()
   }
 
   if (isLoading) {
@@ -94,7 +86,7 @@ export default function ProjectDiagramadorPage({ params }: { params: Promise<{ i
         <div className="text-center">
           <h1 className="text-2xl font-bold mb-4">Erro</h1>
           <p className="text-muted-foreground mb-6">{error}</p>
-          <Button onClick={() => router.push('/projects')}>
+          <Button onClick={() => router.push('/albums')}>
             Voltar aos Projetos
           </Button>
         </div>
@@ -111,7 +103,7 @@ export default function ProjectDiagramadorPage({ params }: { params: Promise<{ i
             <Button 
               variant="ghost" 
               size="sm"
-              onClick={() => router.push('/projects')}
+              onClick={() => router.push('/albums')}
             >
               <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />

@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { PrismaClient } from '@prisma/client'
 import { authenticateRequest, createAuthResponse } from '@/lib/auth-middleware'
 import { deletePhotoVariants, isS3Configured } from '@/lib/s3'
-
-const prisma = new PrismaClient()
+import { prisma } from '@/lib/prisma'
 
 export async function PATCH(
   request: NextRequest,
@@ -20,7 +18,7 @@ export async function PATCH(
     const params = await context.params
     const photoId = params.id
     const body = await request.json()
-    const { projectId } = body
+    const { albumId } = body
 
     // Verificar se a foto existe e pertence ao usuário
     const existingPhoto = await prisma.photo.findFirst({
@@ -37,18 +35,18 @@ export async function PATCH(
       )
     }
 
-    // Se projectId foi fornecido, verificar se o projeto existe e pertence ao usuário
-    if (projectId) {
+    // Se albumId foi fornecido, verificar se o projeto existe e pertence ao usuário
+    if (albumId) {
       const project = await prisma.project.findFirst({
         where: {
-          id: projectId,
+          id: albumId,
           userId: user.userId
         }
       })
 
       if (!project) {
         return NextResponse.json(
-          { message: 'Projeto não encontrado' },
+          { message: 'Álbum não encontrado' },
           { status: 404 }
         )
       }
@@ -60,7 +58,7 @@ export async function PATCH(
         id: photoId
       },
       data: {
-        projectId: projectId || null
+        projectId: albumId || null
       }
     })
 

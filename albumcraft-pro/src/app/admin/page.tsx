@@ -10,9 +10,9 @@ import { AdminReports } from '@/components/AdminReports';
 import { AdminProtectedRoute } from '@/components/AdminProtectedRoute';
 import { AdminNavbar } from '@/components/AdminNavbar';
 import CreateUserModal from '@/components/CreateUserModal';
-import CreateProjectModal from '@/components/CreateProjectModal';
-import ProjectCreationTypeModal from '@/components/ProjectCreationTypeModal';
-import CreateMultipleProjectsModal from '@/components/CreateMultipleProjectsModal';
+import CreateAlbumModal from '@/components/CreateAlbumModal';
+import AlbumCreationTypeModal from '@/components/AlbumCreationTypeModal';
+import CreateMultipleAlbumsModal from '@/components/CreateMultipleAlbumsModal';
 import { 
   Users, 
   FolderOpen, 
@@ -87,6 +87,7 @@ export default function AdminDashboard() {
   const [isCreateUserModalOpen, setIsCreateUserModalOpen] = useState(false);
   const [isCreateProjectModalOpen, setIsCreateProjectModalOpen] = useState(false);
   const [isProjectTypeModalOpen, setIsProjectTypeModalOpen] = useState(false);
+  const [isCreateAlbumModalOpen, setIsCreateAlbumModalOpen] = useState(false);
   const [isCreateMultipleProjectsModalOpen, setIsCreateMultipleProjectsModalOpen] = useState(false);
 
   useEffect(() => {
@@ -112,10 +113,10 @@ export default function AdminDashboard() {
       }
 
       // Carregar projetos
-      const projectsResponse = await fetch('/api/admin/projects');
-      if (projectsResponse.ok) {
-        const projectsData = await projectsResponse.json();
-        setProjects(projectsData.projects);
+      const albumsResponse = await fetch('/api/admin/albums');
+    if (albumsResponse.ok) {
+      const albumsData = await albumsResponse.json();
+      setProjects(albumsData.albums);
       }
     } catch (error) {
       console.error('Erro ao carregar dados:', error);
@@ -146,9 +147,9 @@ export default function AdminDashboard() {
     if (!confirm('Tem certeza que deseja deletar este projeto?')) return;
     
     try {
-      const response = await fetch(`/api/admin/projects/${projectId}`, {
-        method: 'DELETE'
-      });
+      const response = await fetch(`/api/admin/albums/${projectId}`, {
+      method: 'DELETE',
+    });
       
       if (response.ok) {
         setProjects(projects.filter(project => project.id !== projectId));
@@ -174,10 +175,14 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleCreateProject = () => {
+    setIsCreateAlbumModalOpen(true);
+  };
+
   const handleCloseAllModals = () => {
-    setIsProjectTypeModalOpen(false);
-    setIsCreateProjectModalOpen(false);
+    setIsCreateAlbumModalOpen(false);
     setIsCreateMultipleProjectsModalOpen(false);
+    setIsProjectTypeModalOpen(false);
   };
 
   const formatDate = (dateString: string) => {
@@ -465,7 +470,7 @@ export default function AdminDashboard() {
                               <Button
                                 size="sm"
                                 variant="outline"
-                                onClick={() => router.push(`/admin/projects/${project.id}`)}
+                                onClick={() => router.push(`/admin/albums/${project.id}`)}
                               >
                                 <Eye className="h-4 w-4" />
                               </Button>
@@ -499,22 +504,22 @@ export default function AdminDashboard() {
       </div>
 
       {/* Modals */}
-      <ProjectCreationTypeModal
+      <AlbumCreationTypeModal
         isOpen={isProjectTypeModalOpen}
         onClose={handleCloseAllModals}
         onSelectType={handleProjectTypeSelect}
       />
       
-      <CreateProjectModal
-        isOpen={isCreateProjectModalOpen}
+      <CreateAlbumModal
+        isOpen={isCreateAlbumModalOpen}
         onClose={handleCloseAllModals}
-        onProjectCreated={loadData}
+        onAlbumCreated={loadData}
       />
       
-      <CreateMultipleProjectsModal
+      <CreateMultipleAlbumsModal
         isOpen={isCreateMultipleProjectsModalOpen}
         onClose={handleCloseAllModals}
-        onProjectsCreated={loadData}
+        onAlbumsCreated={loadData}
       />
     </AdminProtectedRoute>
   );

@@ -29,8 +29,11 @@ interface TempPhoto {
 // Interface unificada para fotos (apenas temporárias agora)
 type PhotoItem = TempPhoto
 
+import { useAuth } from '@/hooks/useAuth'
+
 export default function SingleAlbumPage() {
   const router = useRouter()
+  const { logout } = useAuth()
   const [formData, setFormData] = useState<FormData>({
     name: '',
     albumSize: 'SIZE_30X20' // Padrão para 30x20
@@ -168,7 +171,7 @@ export default function SingleAlbumPage() {
 
     try {
       // 1. Criar o projeto
-      const response = await fetch('/api/projects', {
+      const response = await fetch('/api/albums', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -189,7 +192,7 @@ export default function SingleAlbumPage() {
       }
 
       const data = await response.json()
-      const projectId = data.project.id
+      const albumId = data.project.id
 
       // 2. Fazer upload das fotos temporárias
       if (photos.length > 0) {
@@ -200,7 +203,7 @@ export default function SingleAlbumPage() {
             // Fazer upload da foto temporária
             const formData = new FormData()
             formData.append('files', photo.file)
-            formData.append('projectId', projectId) // Associar diretamente ao projeto
+            formData.append('albumId', albumId) // Associar diretamente ao álbum
 
             const uploadPromise = fetch('/api/photos', {
               method: 'POST',
@@ -252,7 +255,7 @@ export default function SingleAlbumPage() {
       }
 
       // 3. Redirecionar para o projeto criado
-      router.push(`/projects/${projectId}`)
+      router.push(`/albums/${albumId}`)
       
     } catch (error) {
       console.error('Error creating project:', error)
@@ -263,17 +266,7 @@ export default function SingleAlbumPage() {
   }
 
   const handleLogout = async () => {
-    try {
-      await fetch('/api/auth/logout', { 
-        method: 'POST',
-        credentials: 'include'
-      })
-      
-      document.cookie = 'auth-token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;'
-      router.push('/auth/login')
-    } catch (err) {
-      console.error('Logout error:', err)
-    }
+    await logout()
   }
 
   return (
@@ -296,7 +289,7 @@ export default function SingleAlbumPage() {
                 Dashboard
               </Link>
               <Link 
-                href="/projects" 
+                href="/albums" 
                 className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
               >
                 Meus Álbuns
@@ -335,7 +328,7 @@ export default function SingleAlbumPage() {
           <div className="flex items-center space-x-2 text-sm text-muted-foreground mb-4">
             <Link href="/dashboard" className="hover:text-foreground transition-colors">Dashboard</Link>
             <span>→</span>
-            <Link href="/projects/new" className="hover:text-foreground transition-colors">Novo Projeto</Link>
+            <Link href="/albums/new" className="hover:text-foreground transition-colors">Novo Projeto</Link>
             <span>→</span>
             <span className="text-foreground">Criar Álbum</span>
           </div>

@@ -17,7 +17,7 @@ interface Photo {
   mediumUrl?: string
   uploadedAt: string
   userId: string
-  projectId?: string
+  albumId?: string
   project?: {
     id: string
     name: string

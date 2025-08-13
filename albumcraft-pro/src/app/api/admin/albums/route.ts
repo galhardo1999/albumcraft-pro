@@ -3,8 +3,8 @@ import { requireAdmin } from '@/lib/admin-middleware';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
 
-// Schema de validação para criação de projeto pelo admin
-const CreateProjectAdminSchema = z.object({
+// Schema de validação para criação de álbum pelo admin
+const CreateAlbumAdminSchema = z.object({
   userId: z.string().min(1, 'ID do usuário é obrigatório'),
   name: z.string().min(1, 'Nome é obrigatório').max(100),
   albumSize: z.enum([
@@ -29,8 +29,8 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Buscar todos os projetos com informações detalhadas
-    const projects = await prisma.project.findMany({
+    // Buscar todos os álbuns com informações detalhadas
+    const albums = await prisma.album.findMany({
       select: {
         id: true,
         name: true,
@@ -61,9 +61,9 @@ export async function GET(request: NextRequest) {
       }
     });
 
-    return NextResponse.json({ projects });
+    return NextResponse.json({ albums });
   } catch (error) {
-    console.error('Erro ao buscar projetos:', error);
+    console.error('Erro ao buscar álbuns:', error);
     return NextResponse.json(
       { error: 'Erro interno do servidor' },
       { status: 500 }
@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     
     // Validar dados de entrada
-    const validatedData = CreateProjectAdminSchema.parse(body);
+    const validatedData = CreateAlbumAdminSchema.parse(body);
 
     // Verificar se o usuário existe
     const user = await prisma.user.findUnique({
@@ -98,20 +98,20 @@ export async function POST(request: NextRequest) {
 
     // Verificar limites do plano do usuário (apenas para planos limitados)
     if (user.plan === 'FREE') {
-      const projectCount = await prisma.project.count({
+      const albumCount = await prisma.album.count({
         where: { userId: validatedData.userId }
       });
 
-      if (projectCount >= 3) {
+      if (albumCount >= 3) {
         return NextResponse.json(
-          { error: 'Usuário atingiu o limite de projetos para o plano gratuito (3 projetos)' },
+          { error: 'Usuário atingiu o limite de álbuns para o plano gratuito (3 álbuns)' },
           { status: 400 }
         );
       }
     }
 
-    // Criar projeto
-    const project = await prisma.project.create({
+    // Criar álbum
+    const album = await prisma.album.create({
       data: {
         userId: validatedData.userId,
         name: validatedData.name,
@@ -138,8 +138,8 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ 
       success: true,
-      project,
-      message: 'Projeto criado com sucesso'
+      album,
+      message: 'Álbum criado com sucesso'
     });
 
   } catch (error) {
@@ -150,7 +150,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.error('Erro ao criar projeto:', error);
+    console.error('Erro ao criar álbum:', error);
     return NextResponse.json(
       { error: 'Erro interno do servidor' },
       { status: 500 }

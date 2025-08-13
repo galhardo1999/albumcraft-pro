@@ -6,8 +6,9 @@ import { deleteFromS3 } from '@/lib/s3'
 // GET /api/admin/photo-galleries/[id] - Obter foto específica
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params
   try {
     const adminCheck = await requireAdmin(request)
     if (adminCheck instanceof NextResponse) {
@@ -15,7 +16,7 @@ export async function GET(
     }
 
     const photo = await prisma.photoGallery.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         album: {
           include: {
@@ -45,8 +46,9 @@ export async function GET(
 // PUT /api/admin/photo-galleries/[id] - Atualizar foto
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params
   try {
     const adminCheck = await requireAdmin(request)
     if (adminCheck instanceof NextResponse) {
@@ -58,7 +60,7 @@ export async function PUT(
 
     // Verificar se a foto existe
     const existingPhoto = await prisma.photoGallery.findUnique({
-      where: { id: params.id },
+      where: { id },
     })
 
     if (!existingPhoto) {
@@ -84,7 +86,7 @@ export async function PUT(
 
     // Atualizar a foto
     const updatedPhoto = await prisma.photoGallery.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         ...(filename && { filename }),
         ...(albumId && { albumId }),
@@ -111,8 +113,9 @@ export async function PUT(
 // DELETE /api/admin/photo-galleries/[id] - Deletar foto
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params
   try {
     const adminCheck = await requireAdmin(request)
     if (adminCheck instanceof NextResponse) {
@@ -121,7 +124,7 @@ export async function DELETE(
 
     // Buscar a foto para obter a chave S3
     const photo = await prisma.photoGallery.findUnique({
-      where: { id: params.id },
+      where: { id },
     })
 
     if (!photo) {
@@ -141,7 +144,7 @@ export async function DELETE(
 
     // Deletar do banco de dados
     await prisma.photoGallery.delete({
-      where: { id: params.id },
+      where: { id },
     })
 
     return NextResponse.json({ message: 'Foto deletada com sucesso' })

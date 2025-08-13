@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
+import { useAuth } from '@/hooks/useAuth'
 
 interface UserProfile {
   id: string
@@ -98,6 +99,7 @@ export default function PlansPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [upgradeLoading, setUpgradeLoading] = useState<string | null>(null)
   const router = useRouter()
+  const { logout } = useAuth()
 
   const checkAuth = useCallback(async () => {
     try {
@@ -128,17 +130,7 @@ export default function PlansPage() {
   }, [checkAuth])
 
   const handleLogout = async () => {
-    try {
-      await fetch('/api/auth/logout', { 
-        method: 'POST',
-        credentials: 'include'
-      })
-      
-      document.cookie = 'auth-token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;'
-      router.push('/auth/login')
-    } catch (err) {
-      console.error('Logout error:', err)
-    }
+    await logout()
   }
 
   const handleUpgrade = async (planId: string) => {
@@ -219,7 +211,7 @@ export default function PlansPage() {
                 Dashboard
               </Link>
               <Link 
-                href="/projects" 
+                href="/albums" 
                 className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
               >
                 Meus Álbuns

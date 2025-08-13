@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { PrismaClient } from '@prisma/client'
 import { uploadToS3, generateS3Key, generateThumbnailKey, isS3Configured } from '@/lib/s3'
 import { authenticateRequest, createAuthResponse } from '@/lib/auth-middleware'
 import { 
@@ -10,8 +9,7 @@ import {
   isValidFileSize, 
   sanitizeFileName 
 } from '@/lib/image-processing'
-
-const prisma = new PrismaClient()
+import { prisma } from '@/lib/prisma'
 
 // GET - Buscar fotos do usuário
 export async function GET(request: NextRequest) {
@@ -25,13 +23,13 @@ export async function GET(request: NextRequest) {
 
     // Obter parâmetros da query
     const { searchParams } = new URL(request.url)
-    const projectId = searchParams.get('projectId')
+    const albumId = searchParams.get('albumId')
     const limit = parseInt(searchParams.get('limit') || '50')
     const offset = parseInt(searchParams.get('offset') || '0')
 
     console.log('🔍 GET /api/photos - Parâmetros:', {
       userId: user.userId,
-      projectId,
+      albumId,
       limit,
       offset
     })
@@ -41,41 +39,40 @@ export async function GET(request: NextRequest) {
       userId: user.userId
     }
 
-    // Filtrar por projeto se especificado
-    if (projectId) {
-      whereClause.projectId = projectId
-      console.log('📂 Filtrando fotos do projeto:', projectId)
+    // Filtrar por álbum se especificado
+    if (albumId) {
+      whereClause.albumId = albumId
+      console.log('📂 Filtrando fotos do álbum:', albumId)
     }
 
     // Buscar fotos no banco de dados
     const photos = await prisma.photo.findMany({
       where: whereClause,
       orderBy: {
-        uploadedAt: 'desc'
-      },
+          createdAt: 'desc'
+        },
       take: limit,
       skip: offset,
       select: {
-        id: true,
-        filename: true,
-        originalUrl: true,
-        thumbnailUrl: true,
-        mediumUrl: true,
-        width: true,
-        height: true,
-        fileSize: true,
-        projectId: true,
-        isS3Stored: true,
-        s3Key: true,
-        uploadedAt: true,
-        metadata: true
-      }
-    })
+          id: true,
+          filename: true,
+          s3Url: true,
+
+          width: true,
+          height: true,
+          size: true,
+          albumId: true,
+          isS3Stored: true,
+          s3Key: true,
+          uploadedAt: true,
+          metadata: true
+        }
+      })
 
     console.log(`📸 Encontradas ${photos.length} fotos para o usuário ${user.userId}`)
     
-    if (projectId) {
-      console.log(`📂 Fotos do projeto ${projectId}:`, photos.map(p => ({ id: p.id, filename: p.filename, projectId: p.projectId })))
+    if (albumId) {
+      console.log(`📂 Fotos do álbum ${albumId}:`, photos.map(p => ({ id: p.id, filename: p.filename, albumId: p.albumId })))
     }
 
     // Contar total de fotos (para paginação)
@@ -124,16 +121,16 @@ export async function POST(request: NextRequest) {
     console.log('2. Processando FormData...')
     const formData = await request.formData()
     const files = formData.getAll('files') as File[]
-    const projectId = formData.get('projectId') as string | null
+    const albumId = formData.get('albumId') as string | null
     
     console.log('📁 Arquivos recebidos:', files.length)
 
-    // Verificar se o projeto existe e pertence ao usuário (se projectId fornecido)
-    if (projectId) {
-      console.log('3. Verificando projeto...')
+    // Verificar se o projeto existe e pertence ao usuário (se albumId foi fornecido)
+    if (albumId) {
+      console.log('3. Verificando se o projeto existe...')
       const projectExists = await prisma.project.findFirst({
         where: {
-          id: projectId,
+          id: albumId,
           userId: user.userId,
         },
       })
@@ -218,8 +215,8 @@ export async function POST(request: NextRequest) {
           console.log(`✅ Thumbnail criado: ${thumbnail.buffer.length} bytes`)
           
           // Gerar chaves únicas para S3
-          const originalKey = generateS3Key(user.userId, sanitizedFileName, projectId || undefined)
-          const thumbnailKey = generateThumbnailKey(originalKey)
+        const originalKey = generateS3Key(user.userId, sanitizedFileName, albumId || undefined)
+        const thumbnailKey = generateThumbnailKey(originalKey)
           
           // Upload para S3
           console.log(`📤 Fazendo upload da imagem original...`)
@@ -262,15 +259,15 @@ export async function POST(request: NextRequest) {
         const photo = await prisma.photo.create({
           data: {
             userId: user.userId,
-            projectId: projectId || null, // Associar ao projeto se fornecido
+            albumId: albumId || null, // Associar ao álbum se fornecido
             filename: sanitizedFileName,
-            originalUrl: originalUrl,
+            s3Url: originalUrl,
             thumbnailUrl: thumbnailUrl,
-            fileSize: originalMetadata.size,
+            size: originalMetadata.size,
             width: originalMetadata.width,
             height: originalMetadata.height,
             mimeType: file.type,
-            s3Key: isS3Configured() ? generateS3Key(user.userId, sanitizedFileName, projectId || undefined) : null,
+            s3Key: isS3Configured() ? generateS3Key(user.userId, sanitizedFileName, albumId || undefined) : null,
           }
         })
         console.log(`✅ Foto salva no banco`)
@@ -278,12 +275,12 @@ export async function POST(request: NextRequest) {
         uploadedPhotos.push({
           id: photo.id,
           name: photo.filename,
-          url: photo.originalUrl,
+          url: photo.s3Url,
           width: photo.width,
           height: photo.height,
-          fileSize: photo.fileSize,
-          uploadedAt: photo.uploadedAt.toISOString(),
-          projectId: photo.projectId // Incluir projectId na resposta
+          fileSize: photo.size,
+            uploadedAt: photo.createdAt?.toISOString() || new Date().toISOString(),
+          albumId: photo.albumId // Incluir albumId na resposta
         })
 
       } catch (fileError) {
@@ -307,7 +304,7 @@ export async function POST(request: NextRequest) {
         height: number;
         fileSize: number;
         uploadedAt: string;
-        projectId?: string | null; // Incluir projectId no tipo
+        albumId?: string | null; // Incluir albumId no tipo
       }>;
       message: string;
       warnings?: string[];

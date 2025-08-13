@@ -184,18 +184,6 @@ export default function SpreadTimeline({
     )
   }
 
-  // Scroll para o spread atual
-  const scrollToCurrentSpread = () => {
-    if (scrollRef.current) {
-      const spreadWidth = 150 // Largura aproximada de cada spread
-      const scrollPosition = currentSpreadIndex * spreadWidth - scrollRef.current.clientWidth / 2
-      scrollRef.current.scrollTo({
-        left: Math.max(0, scrollPosition),
-        behavior: 'smooth'
-      })
-    }
-  }
-
   return (
     <div className="border-t bg-card">
       {/* Cabeçalho */}
@@ -238,40 +226,34 @@ export default function SpreadTimeline({
           <div className="flex items-center space-x-2">
             <Button
               onClick={onSpreadAdd}
+              variant="outline"
               size="sm"
-              className="text-xs transition-colors"
-              title="Adicionar nova lâmina (Ctrl + N)"
+              className="text-xs"
             >
-              + Adicionar Lâmina
+              + Nova Lâmina
             </Button>
           </div>
         </div>
       </div>
 
-      {/* Timeline */}
-      <div 
+      {/* Timeline das lâminas */}
+      <div
         ref={scrollRef}
-        className="flex items-center space-x-3 p-4 overflow-x-auto scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent"
-        style={{ minHeight: '120px' }}
+        className="flex space-x-3 p-4 overflow-x-auto scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent"
+        style={{ scrollbarWidth: 'thin' }}
       >
-        <div className="flex space-x-3">
-          {spreads.map((spread, index) => (
-            <div
-              key={spread.id}
-              className="group transition-transform hover:scale-105"
-              style={{ minWidth: '140px' }}
-            >
-              {renderSpreadThumbnail(spread, index)}
-            </div>
-          ))}
-        </div>
+        {spreads.map((spread, index) => (
+          <div key={spread.id} className="group">
+            {renderSpreadThumbnail(spread, index)}
+          </div>
+        ))}
         
-        {/* Botão de adicionar no final */}
+        {/* Adicionar nova lâmina */}
         <Card 
-          className="flex-shrink-0 cursor-pointer border-dashed border-2 hover:border-primary/50 transition-colors"
+          className="min-w-[140px] h-[120px] flex items-center justify-center cursor-pointer border-dashed border-2 border-muted-foreground/30 hover:border-muted-foreground/50 transition-colors group"
           onClick={onSpreadAdd}
         >
-          <div className="w-32 h-20 flex flex-col items-center justify-center text-muted-foreground hover:text-primary transition-colors">
+          <div className="text-center text-muted-foreground group-hover:text-foreground transition-colors">
             <div className="text-2xl mb-1">+</div>
             <div className="text-xs">Nova Lâmina</div>
           </div>

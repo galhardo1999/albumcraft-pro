@@ -13,10 +13,10 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
     // Buscar estatísticas do usuário
     const [totalProjects, activeProjects, totalPhotos, storageUsed] = await Promise.all([
-      prisma.project.count({
+      prisma.album.count({
         where: { userId }
       }),
-      prisma.project.count({
+      prisma.album.count({
         where: { 
           userId,
           status: { in: ['DRAFT', 'IN_PROGRESS'] }
@@ -28,7 +28,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       prisma.photo.aggregate({
         where: { userId },
         _sum: {
-          fileSize: true
+          size: true
         }
       })
     ]);
@@ -37,7 +37,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       totalProjects,
       activeProjects,
       totalPhotos,
-      storageUsed: storageUsed._sum.fileSize || 0
+      storageUsed: storageUsed._sum.size || 0
     };
 
     return NextResponse.json(stats);
