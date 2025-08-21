@@ -29,42 +29,22 @@ export async function GET(request: NextRequest) {
       topActiveUsers
     ] = await Promise.all([
       prisma.user.count(),
-      prisma.project.count(),
+      prisma.album.count(),
       prisma.photo.count(),
-      prisma.user.count({
-        where: { createdAt: { gte: startDate } }
-      }),
-      prisma.project.count({
-        where: { createdAt: { gte: startDate } }
-      }),
-      prisma.photo.count({
-        where: { uploadedAt: { gte: startDate } }
-      }),
-      prisma.project.groupBy({
-        by: ['status'],
-        _count: { status: true }
-      }),
-      prisma.user.groupBy({
-        by: ['plan'],
-        _count: { plan: true }
-      }),
+      prisma.user.count({ where: { createdAt: { gte: startDate } } }),
+      prisma.album.count({ where: { createdAt: { gte: startDate } } }),
+      prisma.photo.count({ where: { createdAt: { gte: startDate } } }),
+      prisma.album.groupBy({ by: ['status'], _count: { status: true } }),
+      prisma.user.groupBy({ by: ['plan'], _count: { plan: true } }),
       prisma.user.findMany({
         select: {
           id: true,
           name: true,
           email: true,
           plan: true,
-          _count: {
-            select: {
-              projects: true,
-              photos: true
-            }
-          }
+          _count: { select: { albums: true, photos: true } }
         },
-        orderBy: [
-          { projects: { _count: 'desc' } },
-          { photos: { _count: 'desc' } }
-        ],
+        orderBy: [ { albums: { _count: 'desc' } }, { photos: { _count: 'desc' } } ],
         take: 10
       })
     ]);
@@ -84,24 +64,15 @@ export async function GET(request: NextRequest) {
     });
 
     // Projetos recentes
-    const recentProjects = await prisma.project.findMany({
+    const recentProjects = await prisma.album.findMany({
       where: { createdAt: { gte: startDate } },
       select: {
         id: true,
         name: true,
         status: true,
         createdAt: true,
-        user: {
-          select: {
-            name: true,
-            email: true
-          }
-        },
-        _count: {
-          select: {
-            photos: true
-          }
-        }
+        user: { select: { name: true, email: true } },
+        _count: { select: { photos: true } }
       },
       orderBy: { createdAt: 'desc' },
       take: 10
@@ -128,7 +99,7 @@ export async function GET(request: NextRequest) {
               }
             }
           }),
-          prisma.project.count({
+          prisma.album.count({
             where: {
               createdAt: {
                 gte: date,
@@ -138,7 +109,7 @@ export async function GET(request: NextRequest) {
           }),
           prisma.photo.count({
             where: {
-              uploadedAt: {
+              createdAt: {
                 gte: date,
                 lt: nextDay
               }
@@ -182,7 +153,7 @@ export async function GET(request: NextRequest) {
           }
         }
       }),
-      prisma.project.count({
+      prisma.album.count({
         where: {
           createdAt: {
             gte: previousPeriodStart,
@@ -192,7 +163,7 @@ export async function GET(request: NextRequest) {
       }),
       prisma.photo.count({
         where: {
-          uploadedAt: {
+          createdAt: {
             gte: previousPeriodStart,
             lt: startDate
           }
@@ -229,7 +200,7 @@ export async function GET(request: NextRequest) {
         name: user.name,
         email: user.email,
         plan: user.plan,
-        projectCount: user._count.projects,
+        projectCount: user._count.albums,
         photoCount: user._count.photos
       })),
       recentUsers: recentUsers.map(user => ({

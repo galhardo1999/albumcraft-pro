@@ -267,7 +267,7 @@ export default function AdminUsersPage() {
                           <th className="text-left p-3">Usuário</th>
                           <th className="text-left p-3">Email</th>
                           <th className="text-left p-3">Plano</th>
-                          <th className="text-left p-3">Projetos</th>
+                          <th className="text-left p-3">Álbuns</th>
                           <th className="text-left p-3">Fotos</th>
                           <th className="text-left p-3">Cadastro</th>
                           <th className="text-left p-3">Último Login</th>

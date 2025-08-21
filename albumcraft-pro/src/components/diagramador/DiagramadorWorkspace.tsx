@@ -10,21 +10,7 @@ import ToolsPanel from './ToolsPanel'
 import SpreadTimeline from './SpreadTimeline'
 import { samplePhotos } from '@/data/sampleData'
 import { getAlbumSizeByIdWithFallback, calculatePixelDimensions } from '@/lib/album-sizes'
-
-interface Project {
-  id: string
-  name: string
-  description?: string
-  albumSize: string
-  status: string
-  creationType: string
-  group?: string
-  createdAt: string
-  updatedAt: string
-  _count: {
-    pages: number
-  }
-}
+import { Album } from '@/types/album'
 
 interface Photo {
   id: string
@@ -33,6 +19,32 @@ interface Photo {
   width: number
   height: number
   fileSize: number
+  albumId?: string | null
+  thumbnailUrl?: string
+  mediumUrl?: string
+}
+
+interface ImportedPhoto {
+  id: string
+  originalUrl?: string
+  url?: string
+  filename?: string
+  name?: string
+  width: number
+  height: number
+  fileSize: number
+  albumId?: string | null
+  thumbnailUrl?: string
+  mediumUrl?: string
+}
+
+interface ApiPhoto {
+  id: string
+  s3Url: string
+  filename: string
+  width?: number
+  height?: number
+  size: number
   albumId?: string | null
   thumbnailUrl?: string
   mediumUrl?: string
@@ -90,12 +102,12 @@ interface LayoutTemplate {
 }
 
 interface DiagramadorWorkspaceProps {
-  project: Project
+  album: Album
 }
 
-export default function DiagramadorWorkspace({ project }: DiagramadorWorkspaceProps) {
+export default function DiagramadorWorkspace({ album }: DiagramadorWorkspaceProps) {
   // Obter configuração do tamanho do álbum
-  const albumSizeConfig = getAlbumSizeByIdWithFallback(project.albumSize)
+  const albumSizeConfig = getAlbumSizeByIdWithFallback(album.albumSize)
   
   // Calcular dimensões em pixels para o canvas (300 DPI padrão)
   const canvasDimensions = calculatePixelDimensions(
@@ -215,8 +227,8 @@ export default function DiagramadorWorkspace({ project }: DiagramadorWorkspacePr
 
   const loadPhotos = useCallback(async () => {
     try {
-      console.log('🔄 Carregando fotos do projeto:', project.id)
-      const response = await fetch(`/api/photos?albumId=${project.id}`, {
+      console.log('🔄 Carregando fotos do álbum:', album.id)
+    const response = await fetch(`/api/photos?albumId=${album.id}`, {
         credentials: 'include',
         headers: {
           'Content-Type': 'application/json'
@@ -229,7 +241,18 @@ export default function DiagramadorWorkspace({ project }: DiagramadorWorkspacePr
         
         if (data.success && data.data && Array.isArray(data.data)) {
           console.log(`✅ ${data.data.length} fotos encontradas para o projeto`)
-          setPhotos(data.data)
+          const mapped = data.data.map((p: ApiPhoto) => ({
+            id: p.id,
+            originalUrl: p.s3Url,
+            filename: p.filename,
+            width: p.width ?? 0,
+            height: p.height ?? 0,
+            fileSize: p.size ?? 0,
+            albumId: p.albumId ?? undefined,
+            thumbnailUrl: p.thumbnailUrl ?? undefined,
+            mediumUrl: p.mediumUrl ?? undefined,
+          }))
+          setPhotos(mapped)
           
           // Se não há fotos reais, usar fotos de exemplo apenas para demonstração
           if (data.data.length === 0) {
@@ -274,7 +297,7 @@ export default function DiagramadorWorkspace({ project }: DiagramadorWorkspacePr
       // Em caso de erro de rede, deixar vazio para mostrar o problema
       setPhotos([])
     }
-  }, [project.id])
+  }, [album.id])
 
   const initializeProject = useCallback(async () => {
     try {
@@ -507,7 +530,7 @@ export default function DiagramadorWorkspace({ project }: DiagramadorWorkspacePr
   const handleExport = async () => {
     try {
       // Implementar lógica de exportação
-      console.log('Exporting project...', { project, spreads })
+      console.log('Exporting album...', { album, spreads })
       alert('Funcionalidade de exportação será implementada!')
     } catch (error) {
       console.error('Export error:', error)
@@ -551,7 +574,7 @@ export default function DiagramadorWorkspace({ project }: DiagramadorWorkspacePr
               Lâmina {currentSpreadIndex + 1} de {spreads.length}
             </div>
             <div className="text-sm text-muted-foreground">
-              {project.albumSize} • {albumConfig.dpi} DPI
+              {album.albumSize} • {albumConfig.dpi} DPI
             </div>
             <Separator orientation="vertical" className="h-4" />
             <div className="text-sm font-medium">
@@ -624,18 +647,40 @@ export default function DiagramadorWorkspace({ project }: DiagramadorWorkspacePr
         <div className="w-80 border-r bg-card flex-shrink-0 flex flex-col">
           <PhotoGallery
             photos={photos}
-            albumId={project.id}
+            albumId={album.id}
             onPhotoDragStart={handlePhotoDragStart}
             onPhotoDragEnd={() => setDraggedPhoto(null)}
             onPhotoImport={async (newPhotos) => {
-              setPhotos(prev => [...newPhotos, ...prev])
+              const mappedNew = newPhotos.map((p: ImportedPhoto) => ({
+                id: p.id,
+                originalUrl: p.originalUrl ?? p.url ?? '',
+                filename: p.filename ?? p.name ?? '',
+                width: p.width,
+                height: p.height,
+                fileSize: p.fileSize,
+                albumId: p.albumId,
+                thumbnailUrl: p.thumbnailUrl,
+                mediumUrl: p.mediumUrl,
+              }))
+              setPhotos(prev => [...mappedNew, ...prev])
               
               try {
-                const response = await fetch(`/api/photos?albumId=${project.id}`)
+                const response = await fetch(`/api/photos?albumId=${album.id}`)
                 if (response.ok) {
                   const data = await response.json()
-                  if (data.success) {
-                    setPhotos(data.data)
+                  if (data.success && Array.isArray(data.data)) {
+                    const remapped = data.data.map((p: ApiPhoto) => ({
+                      id: p.id,
+                      originalUrl: p.s3Url,
+                      filename: p.filename,
+                      width: p.width ?? 0,
+                      height: p.height ?? 0,
+                      fileSize: p.size ?? 0,
+                      albumId: p.albumId ?? undefined,
+                      thumbnailUrl: p.thumbnailUrl ?? undefined,
+                      mediumUrl: p.mediumUrl ?? undefined,
+                    }))
+                    setPhotos(remapped)
                   }
                 }
               } catch (error) {

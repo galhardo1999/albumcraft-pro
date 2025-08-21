@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
           lastLogin: true,
           _count: {
             select: {
-              projects: true,
+              albums: true,
               photos: true
             }
           }
@@ -64,8 +64,18 @@ export async function GET(request: NextRequest) {
       prisma.user.count({ where })
     ]);
 
+    // Manter compatibilidade com clients antigos adicionando alias projects
+    const usersWithAlias = users.map(u => ({
+      ...u,
+      _count: {
+        ...u._count,
+        // Alias para compatibilidade
+        projects: u._count.albums
+      }
+    }));
+
     return NextResponse.json({ 
-      users,
+      users: usersWithAlias,
       pagination: {
         page,
         limit,
@@ -130,16 +140,24 @@ export async function POST(request: NextRequest) {
         lastLogin: true,
         _count: {
           select: {
-            projects: true,
+            albums: true,
             photos: true
           }
         }
       }
     });
 
+    const userWithAlias = {
+      ...user,
+      _count: {
+        ...user._count,
+        projects: user._count.albums
+      }
+    };
+
     return NextResponse.json({ 
       success: true,
-      user,
+      user: userWithAlias,
       message: 'Usuário criado com sucesso'
     });
 

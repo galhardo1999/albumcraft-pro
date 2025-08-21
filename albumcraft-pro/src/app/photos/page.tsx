@@ -24,6 +24,18 @@ interface Photo {
   }
 }
 
+interface ApiPhoto {
+  id: string
+  filename: string
+  originalName?: string
+  mimeType?: string
+  size?: number
+  s3Url: string
+  createdAt: string
+  userId?: string
+  albumId?: string | null
+}
+
 export default function PhotosManagementPage() {
   const [photos, setPhotos] = useState<Photo[]>([])
   const [filteredPhotos, setFilteredPhotos] = useState<Photo[]>([])
@@ -50,8 +62,21 @@ export default function PhotosManagementPage() {
       }
 
       const data = await response.json()
-      setPhotos(data.photos || [])
-      setFilteredPhotos(data.photos || [])
+      const items: Photo[] = (data.data || []).map((p: ApiPhoto) => ({
+        id: p.id,
+        filename: p.filename,
+        originalName: p.originalName ?? p.filename,
+        mimeType: p.mimeType ?? 'image/*',
+        size: p.size ?? 0,
+        url: p.s3Url,
+        thumbnailUrl: undefined,
+        mediumUrl: undefined,
+        uploadedAt: p.createdAt,
+        userId: p.userId ?? '',
+        albumId: p.albumId ?? undefined
+      }))
+      setPhotos(items)
+      setFilteredPhotos(items)
     } catch (error) {
       console.error('Erro ao buscar fotos:', error)
       setError(error instanceof Error ? error.message : 'Erro desconhecido')

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getJWTSecret } from './src/lib/jwt-config'
 import { jwtVerify } from 'jose'
 
 // Rotas que requerem autenticação
@@ -12,14 +13,7 @@ const adminRoutes = ['/admin']
 
 async function verifyToken(token: string): Promise<{ isValid: boolean; payload?: any }> {
   try {
-    const jwtSecret = process.env.NEXTAUTH_SECRET
-    
-    if (!jwtSecret) {
-      console.error('NEXTAUTH_SECRET não configurado')
-      return { isValid: false }
-    }
-    
-    const secret = new TextEncoder().encode(jwtSecret)
+    const secret = getJWTSecret()
     const { payload } = await jwtVerify(token, secret)
     
     // Verificar se o token tem userId válido e não expirou

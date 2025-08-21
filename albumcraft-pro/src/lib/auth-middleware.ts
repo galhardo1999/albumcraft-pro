@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getJWTSecret } from './jwt-config'
 import { jwtVerify } from 'jose'
-
-const secret = new TextEncoder().encode(process.env.NEXTAUTH_SECRET || 'fallback-secret')
 
 export interface AuthenticatedUser {
   userId: string
@@ -27,6 +26,7 @@ export async function authenticateRequest(request: NextRequest): Promise<Authent
     }
     
     // Verificar e decodificar o JWT
+    const secret = getJWTSecret()
     const { payload } = await jwtVerify(token, secret)
     
     const user = {

@@ -35,16 +35,16 @@ export async function PATCH(
       )
     }
 
-    // Se albumId foi fornecido, verificar se o projeto existe e pertence ao usuário
+    // Se albumId foi fornecido, verificar se o álbum existe e pertence ao usuário
     if (albumId) {
-      const project = await prisma.project.findFirst({
+      const album = await prisma.album.findFirst({
         where: {
           id: albumId,
           userId: user.userId
         }
       })
 
-      if (!project) {
+      if (!album) {
         return NextResponse.json(
           { message: 'Álbum não encontrado' },
           { status: 404 }
@@ -58,7 +58,7 @@ export async function PATCH(
         id: photoId
       },
       data: {
-        projectId: albumId || null
+        albumId: albumId || null
       }
     })
 
@@ -112,14 +112,13 @@ export async function DELETE(
     console.log(`📸 Foto encontrada:`, {
       id: existingPhoto.id,
       filename: existingPhoto.filename,
-      s3Key: existingPhoto.s3Key,
-      isS3Stored: existingPhoto.isS3Stored
+      s3Key: existingPhoto.s3Key
     })
 
     // ✅ Deletar arquivos do S3 (se existirem)
     let s3DeletionResult: { deleted: string[]; errors: { key: string; error: string }[] } = { deleted: [], errors: [] }
     
-    if (existingPhoto.isS3Stored && existingPhoto.s3Key) {
+    if (isS3Configured() && existingPhoto.s3Key) {
       try {
         console.log(`🗑️ Deletando arquivos do S3 para chave: ${existingPhoto.s3Key}`)
         s3DeletionResult = await deletePhotoVariants(existingPhoto.s3Key)
@@ -137,7 +136,7 @@ export async function DELETE(
         })
       }
     } else {
-      console.log(`ℹ️ Foto não está armazenada no S3, pulando exclusão de arquivos`)
+      console.log(`ℹ️ S3 não configurado ou foto sem chave S3, pulando exclusão de arquivos`)
     }
 
     // ✅ Deletar registro do banco de dados

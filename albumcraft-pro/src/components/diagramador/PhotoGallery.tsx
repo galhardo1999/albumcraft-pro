@@ -17,6 +17,18 @@ interface Photo {
   mediumUrl?: string
 }
 
+interface ApiPhotoResponse {
+  id: string
+  url: string
+  name: string
+  width: number
+  height: number
+  fileSize: number
+  albumId?: string | null
+  thumbnailUrl?: string
+  mediumUrl?: string
+}
+
 interface PhotoGalleryProps {
   photos: Photo[]
   onPhotoDragStart: (photo: Photo) => void
@@ -70,8 +82,19 @@ export default function PhotoGallery({ photos, onPhotoDragStart, onPhotoDragEnd,
       const result = await response.json()
       
       if (result.success && result.photos) {
+        const mapped: Photo[] = result.photos.map((p: ApiPhotoResponse) => ({
+          id: p.id,
+          originalUrl: p.url,
+          filename: p.name,
+          width: p.width,
+          height: p.height,
+          fileSize: p.fileSize,
+          albumId: p.albumId,
+          thumbnailUrl: p.thumbnailUrl,
+          mediumUrl: p.mediumUrl,
+        }))
         // Chamar callback para adicionar as fotos
-        onPhotoImport(result.photos)
+        onPhotoImport(mapped)
         alert(result.message || 'Fotos enviadas com sucesso!')
       } else {
         throw new Error(result.error || 'Erro desconhecido')

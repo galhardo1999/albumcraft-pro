@@ -457,7 +457,7 @@ export default function CreateBatchAlbumsPage() {
                         ✅ Todos os álbuns foram criados e as fotos foram enviadas para o S3!
                       </p>
                       <p className="text-sm text-gray-500 mt-1">
-                        Redirecionando para "Meus Álbuns" em alguns segundos...
+                        Redirecionando para &quot;Meus Álbuns&quot; em alguns segundos...
                       </p>
                     </div>
                   )}

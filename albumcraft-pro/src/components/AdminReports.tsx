@@ -19,13 +19,13 @@ interface ReportData {
   period: number
   overview: {
     totalUsers: number
-    totalProjects: number
+    totalProjects: number // TODO: futuramente renomear na API para totalAlbums
     totalPhotos: number
     newUsers: number
-    newProjects: number
+    newProjects: number // TODO: futuramente renomear na API para newAlbums
     newPhotos: number
     userGrowthRate: number
-    projectGrowthRate: number
+    projectGrowthRate: number // TODO: futuramente renomear na API para albumGrowthRate
   }
   projectsByStatus: Array<{
     status: string
@@ -40,7 +40,7 @@ interface ReportData {
     name: string
     email: string
     plan: string
-    projectCount: number
+    projectCount: number // TODO: futuramente renomear na API para albumCount
     photoCount: number
   }>
 }
@@ -202,7 +202,7 @@ export function AdminReports() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Novos Projetos</CardTitle>
+            <CardTitle className="text-sm font-medium">Novos Álbuns</CardTitle>
             <FolderOpen className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -247,11 +247,11 @@ export function AdminReports() {
 
       {/* Gráficos e Tabelas */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Projetos por Status */}
+        {/* Álbuns por Status */}
         <Card>
           <CardHeader>
-            <CardTitle>Projetos por Status</CardTitle>
-            <CardDescription>Distribuição dos projetos por status atual</CardDescription>
+            <CardTitle>Álbuns por Status</CardTitle>
+            <CardDescription>Distribuição dos álbuns por status atual</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
@@ -314,7 +314,7 @@ export function AdminReports() {
       <Card>
         <CardHeader>
           <CardTitle>Usuários Mais Ativos</CardTitle>
-          <CardDescription>Usuários com maior número de projetos e fotos</CardDescription>
+          <CardDescription>Usuários com maior número de álbuns e fotos</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
@@ -323,7 +323,7 @@ export function AdminReports() {
                 <tr className="border-b">
                   <th className="text-left py-2">Usuário</th>
                   <th className="text-left py-2">Email</th>
-                  <th className="text-center py-2">Projetos</th>
+                  <th className="text-center py-2">Álbuns</th>
                   <th className="text-center py-2">Fotos</th>
                 </tr>
               </thead>

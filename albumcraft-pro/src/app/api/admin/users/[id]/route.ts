@@ -18,11 +18,15 @@ export async function GET(
     const user = await prisma.user.findUnique({
       where: { id: params.id },
       include: {
-        projects: {
-          include: {
+        albums: {
+          select: {
+            id: true,
+            name: true,
+            status: true,
+            createdAt: true,
+            pageCount: true,
             _count: {
               select: {
-                pages: true,
                 photos: true
               }
             }
@@ -32,13 +36,13 @@ export async function GET(
           select: {
             id: true,
             filename: true,
-            fileSize: true,
-            uploadedAt: true
+            size: true,
+            createdAt: true
           }
         },
         _count: {
           select: {
-            projects: true,
+            albums: true,
             photos: true
           }
         }
@@ -52,7 +56,31 @@ export async function GET(
       );
     }
 
-    return NextResponse.json({ user });
+    // Compatibilidade com clientes que ainda esperam "projects", "uploadedAt" e "fileSize"
+    const userWithCompatibility = {
+      ...user,
+      projects: user.albums.map((album) => ({
+        id: album.id,
+        name: album.name,
+        status: album.status,
+        createdAt: album.createdAt,
+        _count: {
+          pages: album.pageCount ?? 0,
+          photos: album._count.photos
+        }
+      })),
+      photos: user.photos.map((photo) => ({
+        ...photo,
+        fileSize: photo.size,
+        uploadedAt: photo.createdAt
+      })),
+      _count: {
+        ...user._count,
+        projects: user._count.albums
+      }
+    };
+
+    return NextResponse.json({ user: userWithCompatibility });
   } catch (error) {
     console.error('Erro ao buscar usuário:', error);
     return NextResponse.json(
@@ -140,7 +168,7 @@ export async function DELETE(
       );
     }
 
-    // Deletar o usuário (cascade irá deletar projetos e fotos relacionadas)
+    // Deletar o usuário (cascade irá deletar álbuns e fotos relacionadas)
     await prisma.user.delete({
       where: { id: params.id }
     });

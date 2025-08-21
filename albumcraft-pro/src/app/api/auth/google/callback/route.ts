@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { OAuth2Client } from 'google-auth-library'
 import { prisma } from '@/lib/prisma'
-import { SignJWT } from 'jose'
-
-const secret = new TextEncoder().encode(process.env.NEXTAUTH_SECRET || 'fallback-secret')
+import { createJWTToken } from '@/lib/jwt-config'
+import { setAuthCookie } from '@/lib/cookie-config'
+import { rateLimit, rateLimitConfigs, createRateLimitResponse } from '@/lib/rate-limit'
 
 const client = new OAuth2Client(
   process.env.GOOGLE_CLIENT_ID,
@@ -11,9 +11,18 @@ const client = new OAuth2Client(
   `${process.env.NEXTAUTH_URL}/api/auth/google/callback`
 )
 
+const googleCallbackRateLimit = rateLimit(rateLimitConfigs.oauth)
+
 // GET /api/auth/google/callback - Callback do Google OAuth
 export async function GET(request: NextRequest) {
   try {
+    // Aplicar rate limiting
+    const rateLimitResult = await googleCallbackRateLimit(request)
+    
+    if (!rateLimitResult.success) {
+      return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/auth/login?error=rate_limit_exceeded`)
+    }
+
     const { searchParams } = new URL(request.url)
     const code = searchParams.get('code')
     const error = searchParams.get('error')
@@ -77,28 +86,19 @@ export async function GET(request: NextRequest) {
     }
 
     // Gerar JWT token
-    const token = await new SignJWT({ 
+    const token = await createJWTToken({ 
       userId: user.id,
       email: user.email,
-      name: user.name,
+      plan: user.plan,
       isAdmin: user.isAdmin
-    })
-      .setProtectedHeader({ alg: 'HS256' })
-      .setIssuedAt()
-      .setExpirationTime('7d')
-      .sign(secret)
+    }, '7d')
 
     // Redirecionar baseado no tipo de usuário
     const redirectUrl = user.isAdmin ? '/admin' : '/dashboard'
     const response = NextResponse.redirect(`${process.env.NEXTAUTH_URL}${redirectUrl}`)
 
     // Definir cookie de autenticação
-    response.cookies.set('auth-token', token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 7 * 24 * 60 * 60 // 7 dias
-    })
+    setAuthCookie(response, token)
 
     return response
   } catch (error) {

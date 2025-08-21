@@ -206,7 +206,7 @@ export async function DELETE(
     if (photos.length > 0 && isS3Configured()) {
       const deletePromises = photos.map(async (photo) => {
         try {
-          if (photo.isS3Stored && photo.s3Key) {
+          if (photo.s3Key) {
             await deletePhotoVariants(photo.s3Key)
             console.log(`Deleted photo variants for: ${photo.s3Key}`)
           }

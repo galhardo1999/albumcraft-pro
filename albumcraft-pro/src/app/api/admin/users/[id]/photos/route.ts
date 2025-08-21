@@ -46,14 +46,13 @@ export async function GET(
       select: {
         id: true,
         filename: true,
-        originalUrl: true,
-        thumbnailUrl: true,
+        s3Url: true,
         width: true,
         height: true,
-        fileSize: true,
-        uploadedAt: true,
+        size: true,
+        createdAt: true,
         albumId: true,
-        project: {
+        album: {
           select: {
             id: true,
             name: true
@@ -61,13 +60,16 @@ export async function GET(
         }
       },
       orderBy: {
-        uploadedAt: 'desc'
+        createdAt: 'desc'
       }
     });
 
+    // Normalizar saída adicionando alias url -> s3Url
+    const photosPayload = photos.map(p => ({ ...p, url: p.s3Url }))
+
     return NextResponse.json({
       success: true,
-      data: photos,
+      data: photosPayload,
       user: user
     });
 

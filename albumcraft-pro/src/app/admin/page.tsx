@@ -112,7 +112,7 @@ export default function AdminDashboard() {
         setUsers(usersData.users);
       }
 
-      // Carregar projetos
+      // Carregar álbuns
       const albumsResponse = await fetch('/api/admin/albums');
     if (albumsResponse.ok) {
       const albumsData = await albumsResponse.json();
@@ -231,7 +231,7 @@ export default function AdminDashboard() {
           <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="overview">Visão Geral</TabsTrigger>
             <TabsTrigger value="users">Usuários</TabsTrigger>
-            <TabsTrigger value="projects">Projetos</TabsTrigger>
+            <TabsTrigger value="projects">Álbuns</TabsTrigger>
             <TabsTrigger value="reports">Relatórios</TabsTrigger>
           </TabsList>
 
@@ -256,7 +256,7 @@ export default function AdminDashboard() {
 
                   <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium">Total de Projetos</CardTitle>
+                      <CardTitle className="text-sm font-medium">Total de Álbuns</CardTitle>
                       <FolderOpen className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
@@ -300,7 +300,7 @@ export default function AdminDashboard() {
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   <Card>
                     <CardHeader>
-                      <CardTitle>Projetos por Status</CardTitle>
+                      <CardTitle>Álbuns por Status</CardTitle>
                     </CardHeader>
                     <CardContent>
                       <div className="space-y-3">
@@ -360,7 +360,7 @@ export default function AdminDashboard() {
                         <th className="text-left p-2">Nome</th>
                         <th className="text-left p-2">Email</th>
                         <th className="text-left p-2">Plano</th>
-                        <th className="text-left p-2">Projetos</th>
+                        <th className="text-left p-2">Álbuns</th>
                         <th className="text-left p-2">Fotos</th>
                         <th className="text-left p-2">Cadastro</th>
                         <th className="text-left p-2">Ações</th>
@@ -422,9 +422,9 @@ export default function AdminDashboard() {
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <div>
-                    <CardTitle>Projetos</CardTitle>
+                    <CardTitle>Álbuns por Status</CardTitle>
                     <CardDescription>
-                      Gerencie todos os projetos da plataforma
+                      Gerencie todos os álbuns da plataforma
                     </CardDescription>
                   </div>
                   <Button
@@ -432,7 +432,7 @@ export default function AdminDashboard() {
                     className="bg-blue-600 hover:bg-blue-700"
                   >
                     <Plus className="h-4 w-4 mr-2" />
-                    Criar Projeto
+                    Criar Álbum
                   </Button>
                 </div>
               </CardHeader>
@@ -470,7 +470,7 @@ export default function AdminDashboard() {
                               <Button
                                 size="sm"
                                 variant="outline"
-                                onClick={() => router.push(`/admin/albums/${project.id}`)}
+                                onClick={() => router.push(`/admin/projetos/${project.id}`)}
                               >
                                 <Eye className="h-4 w-4" />
                               </Button>

@@ -2,12 +2,21 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { AuthService } from '@/lib/auth'
 import { LoginSchema } from '@/lib/validations'
-import { SignJWT } from 'jose'
+import { createJWTToken } from '@/lib/jwt-config'
+import { setAuthCookie } from '@/lib/cookie-config'
+import { rateLimit, rateLimitConfigs, createRateLimitResponse, addRateLimitHeaders } from '@/lib/rate-limit'
 
-const secret = new TextEncoder().encode(process.env.NEXTAUTH_SECRET || 'fallback-secret')
+const loginRateLimit = rateLimit(rateLimitConfigs.auth)
 
 export async function POST(request: NextRequest) {
   try {
+    // Aplicar rate limiting
+    const rateLimitResult = await loginRateLimit(request)
+    
+    if (!rateLimitResult.success) {
+      return createRateLimitResponse(rateLimitResult.retryAfter!)
+    }
+
     const body = await request.json()
     
     // Validar dados de entrada
@@ -51,16 +60,12 @@ export async function POST(request: NextRequest) {
     })
     
     // Gerar JWT token
-    const token = await new SignJWT({ 
+    const token = await createJWTToken({ 
       userId: user.id, 
       email: user.email,
       plan: user.plan,
       isAdmin: user.isAdmin
-    })
-      .setProtectedHeader({ alg: 'HS256' })
-      .setIssuedAt()
-      .setExpirationTime('7d')
-      .sign(secret)
+    }, '7d')
     
     const response = NextResponse.json({
       success: true,
@@ -72,20 +77,20 @@ export async function POST(request: NextRequest) {
           plan: user.plan,
           avatarUrl: user.avatarUrl,
           isAdmin: user.isAdmin
-        },
-        token
+        }
       }
     })
     
     // Set secure cookie
-    response.cookies.set('auth-token', token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 7 * 24 * 60 * 60 // 7 days
-    })
+    setAuthCookie(response, token)
     
-    return response
+    // Adicionar headers de rate limit
+    return addRateLimitHeaders(
+      response,
+      rateLimitResult.remaining,
+      rateLimitResult.resetTime,
+      rateLimitConfigs.auth.maxRequests
+    )
     
   } catch (error) {
     console.error('Login error:', error)

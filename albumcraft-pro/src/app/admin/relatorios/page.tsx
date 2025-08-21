@@ -273,7 +273,7 @@ export default function AdminReportsPage() {
 
                     <Card className="border-0 shadow-lg bg-gradient-to-br from-green-50 to-green-100">
                       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium text-green-900">Total de Projetos</CardTitle>
+                        <CardTitle className="text-sm font-medium text-green-900">Total de Álbuns</CardTitle>
                         <FolderOpen className="h-5 w-5 text-green-600" />
                       </CardHeader>
                       <CardContent>
@@ -332,7 +332,7 @@ export default function AdminReportsPage() {
 
                     <Card className="border-0 shadow-lg">
                       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Crescimento de Projetos</CardTitle>
+                        <CardTitle className="text-sm font-medium">Crescimento de Álbuns</CardTitle>
                         <TrendingUp className="h-4 w-4 text-green-600" />
                       </CardHeader>
                       <CardContent>
@@ -367,9 +367,9 @@ export default function AdminReportsPage() {
                       <CardHeader>
                         <CardTitle className="flex items-center">
                           <BarChart3 className="h-5 w-5 mr-2 text-blue-600" />
-                          Projetos por Status
+                          Álbuns por Status
                         </CardTitle>
-                        <CardDescription>Distribuição dos projetos por status atual</CardDescription>
+                        <CardDescription>Distribuição dos álbuns por status atual</CardDescription>
                       </CardHeader>
                       <CardContent>
                         <div className="space-y-4">
@@ -383,7 +383,7 @@ export default function AdminReportsPage() {
                               </div>
                               <div className="flex items-center space-x-3">
                                 <span className="text-sm font-medium text-gray-900">
-                                  {formatNumber(item.count)} projetos
+                                  {formatNumber(item.count)} álbuns
                                 </span>
                                 <div className="w-24 bg-gray-200 rounded-full h-2">
                                   <div 
@@ -464,7 +464,7 @@ export default function AdminReportsPage() {
                                 <th className="text-left p-4 font-semibold text-gray-900">Ranking</th>
                                 <th className="text-left p-4 font-semibold text-gray-900">Usuário</th>
                                 <th className="text-left p-4 font-semibold text-gray-900">Plano</th>
-                                <th className="text-center p-4 font-semibold text-gray-900">Projetos</th>
+                                <th className="text-center p-4 font-semibold text-gray-900">Álbuns</th>
                                 <th className="text-center p-4 font-semibold text-gray-900">Fotos</th>
                                 <th className="text-center p-4 font-semibold text-gray-900">Score Total</th>
                               </tr>
@@ -599,7 +599,7 @@ export default function AdminReportsPage() {
                           className="flex items-center justify-center h-12 hover:bg-green-50 hover:border-green-300 transition-colors"
                         >
                           <FolderOpen className="h-4 w-4 mr-2" />
-                          Relatório de Projetos
+                          Relatório de Álbuns
                         </Button>
                         <Button
                           onClick={() => exportReport('activity')}

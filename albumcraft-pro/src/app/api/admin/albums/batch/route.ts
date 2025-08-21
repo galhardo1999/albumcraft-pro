@@ -1,14 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/admin-middleware'
 import { prisma } from '@/lib/prisma'
-import { BatchAlbumRequest, type BatchAlbumRequestType } from '@/lib/validations'
+import { BatchAlbumRequest } from '@/lib/validations'
 import { addAlbumCreationJob } from '@/lib/queue'
+import { AlbumStatus, AlbumSize, Template, CreationType } from '@prisma/client'
 
 interface AlbumData {
   name: string
   description?: string
-  albumSize: string
-  status?: string
+  albumSize: AlbumSize
+  status?: AlbumStatus
   creationType?: string
   group?: string
   customWidth?: number
@@ -28,16 +29,17 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const body: BatchAlbumRequestType = await request.json()
-    const { userId, albums, sessionId, useQueue = true } = body
-
-    // Validar dados de entrada
-    if (!userId || !albums || !Array.isArray(albums) || albums.length === 0) {
+    // Validar payload com Zod para garantir que somente campos necessários sejam exigidos
+    const json = await request.json()
+    const parsed = BatchAlbumRequest.safeParse(json)
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: 'Dados inválidos. userId e albums são obrigatórios.' },
+        { error: 'Dados inválidos', details: parsed.error.flatten() },
         { status: 400 }
       )
     }
+
+    const { userId, albums, sessionId, useQueue = true } = parsed.data
 
     // Verificar se o usuário existe
     const user = await prisma.user.findUnique({
@@ -60,8 +62,10 @@ export async function POST(request: NextRequest) {
         }
 
         // Converter arquivos de Base64 para Buffer
-        const processedFiles = album.files.map((file: any) => ({
-          ...file,
+        const processedFiles = album.files.map((file) => ({
+          name: file.filename,
+          size: Buffer.from(file.buffer, 'base64').length,
+          type: 'image/jpeg',
           buffer: Buffer.from(file.buffer, 'base64')
         }))
 
@@ -98,8 +102,8 @@ export async function POST(request: NextRequest) {
     const createdAlbums = []
     
     for (const album of albums) {
-      // Validar dados do álbum
-      if (!album.name || !album.albumSize || !album.status || !album.group) {
+      // Validar dados do álbum (status e group não são obrigatórios)
+      if (!album.name || !album.albumSize) {
         continue // Pular álbuns com dados inválidos
       }
 
@@ -141,11 +145,11 @@ async function createAlbumDirectly(userId: string, album: AlbumData) {
   return await prisma.album.create({
     data: {
       name: album.name,
-      albumSize: album.albumSize as any,
-      status: (album.status || 'DRAFT') as any,
+      albumSize: album.albumSize,
+      status: album.status ?? AlbumStatus.DRAFT,
       userId: userId,
-      creationType: 'BATCH',
-      template: 'classic',
+      creationType: CreationType.BATCH,
+      template: Template.classic,
       group: album.group,
       eventName: album.eventName || null,
       createdAt: new Date(),

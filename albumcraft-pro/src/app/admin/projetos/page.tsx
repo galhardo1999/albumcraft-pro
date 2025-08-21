@@ -194,7 +194,7 @@ export default function AdminProjectsPage() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Carregando projetos...</p>
+          <p className="mt-4 text-gray-600">Carregando álbuns...</p>
         </div>
       </div>
     );
@@ -213,10 +213,10 @@ export default function AdminProjectsPage() {
                   <div>
                     <h1 className="text-2xl font-bold text-gray-900 flex items-center">
                       <FolderOpen className="h-6 w-6 mr-2" />
-                      Gerenciar Projetos
+                      Gerenciar Álbuns
                     </h1>
                     <p className="text-gray-600 mt-1">
-                      Visualize e gerencie todos os projetos da plataforma
+                      Visualize e gerencie todos os álbuns da plataforma
                     </p>
                   </div>
                   <Button
@@ -224,7 +224,7 @@ export default function AdminProjectsPage() {
                     className="bg-blue-600 hover:bg-blue-700"
                   >
                     <Plus className="h-4 w-4 mr-2" />
-                    Criar Projeto
+                    Criar Álbum
                   </Button>
                 </div>
               </div>

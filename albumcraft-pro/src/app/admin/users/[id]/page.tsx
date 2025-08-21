@@ -359,7 +359,7 @@ export default function UserDetailsPage({ params }: { params: Promise<{ id: stri
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-2">
                     <FolderOpen className="h-4 w-4 text-gray-500" />
-                    <span>Projetos</span>
+                    <span>Álbuns</span>
                   </div>
                   <span className="font-medium">{user._count.projects}</span>
                 </div>
@@ -379,9 +379,9 @@ export default function UserDetailsPage({ params }: { params: Promise<{ id: stri
             {/* Projects */}
             <Card>
               <CardHeader>
-                <CardTitle>Projetos ({user.projects.length})</CardTitle>
+                <CardTitle>Álbuns ({user.projects.length})</CardTitle>
                 <CardDescription>
-                  Todos os projetos criados por este usuário
+                  Todos os álbuns criados por este usuário
                 </CardDescription>
               </CardHeader>
               <CardContent>

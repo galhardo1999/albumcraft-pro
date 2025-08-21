@@ -1,5 +1,6 @@
 import bcrypt from 'bcryptjs'
-import { jwtVerify } from 'jose'
+import { verifyJWTToken } from './jwt-config'
+import crypto from 'crypto'
 
 export class AuthService {
   static async hashPassword(password: string): Promise<string> {
@@ -14,24 +15,32 @@ export class AuthService {
   static generateSecureToken(): string {
     return crypto.randomUUID()
   }
+
+  /**
+   * Gera um token de reset de senha seguro
+   * Retorna tanto o token original (para envio por email) quanto o hash (para armazenamento)
+   */
+  static generateResetToken(): { token: string; hashedToken: string } {
+    const token = crypto.randomBytes(32).toString('hex')
+    const hashedToken = crypto.createHash('sha256').update(token).digest('hex')
+    return { token, hashedToken }
+  }
+
+  /**
+   * Cria hash de um token de reset para comparação
+   */
+  static hashResetToken(token: string): string {
+    return crypto.createHash('sha256').update(token).digest('hex')
+  }
 }
 
 export async function verifyToken(token: string): Promise<{ valid: boolean; payload?: Record<string, unknown> }> {
-  try {
-    const secret = new TextEncoder().encode(process.env.NEXTAUTH_SECRET || 'fallback-secret')
-    const { payload } = await jwtVerify(token, secret)
-    return { valid: true, payload: payload as Record<string, unknown> }
-  } catch {
-    return { valid: false }
-  }
+  return verifyJWTToken(token)
 }
 
-export class SecurityUtils {
-  static sanitizeFilename(filename: string): string {
-    // Remove caracteres perigosos e mantém apenas alfanuméricos, pontos e hífens
-    return filename.replace(/[^a-zA-Z0-9.-]/g, '_')
-  }
+import { sanitizeFileName } from './image-processing'
 
+export class SecurityUtils {
   static validateFileType(mimeType: string): boolean {
     const allowedTypes = ['image/jpeg', 'image/png', 'image/webp']
     return allowedTypes.includes(mimeType)
@@ -45,7 +54,7 @@ export class SecurityUtils {
   static generateSecureUrl(filename: string): string {
     const timestamp = Date.now()
     const random = Math.random().toString(36).substring(2)
-    const sanitized = this.sanitizeFilename(filename)
+    const sanitized = sanitizeFileName(filename)
     return `${timestamp}-${random}-${sanitized}`
   }
 }

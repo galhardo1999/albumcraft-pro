@@ -59,7 +59,31 @@ export async function GET(
       );
     }
 
-    return NextResponse.json({ album });
+    // Normalizar URLs adicionando alias url -> s3Url em fotos do álbum e fotos em placements
+    const normalizedPages = (album.pages || []).map((page: any) => {
+      const pp = (page as any).photoPlacement;
+      let newPP = pp;
+      if (Array.isArray(pp)) {
+        newPP = pp.map((x: any) => ({
+          ...x,
+          photo: x?.photo ? { ...x.photo, url: x.photo.s3Url } : x.photo
+        }))
+      } else if (pp && typeof pp === 'object') {
+        newPP = {
+          ...pp,
+          photo: pp?.photo ? { ...pp.photo, url: pp.photo.s3Url } : pp.photo
+        }
+      }
+      return { ...page, photoPlacement: newPP }
+    })
+
+    const normalizedAlbum = {
+      ...album,
+      pages: normalizedPages,
+      photos: (album.photos || []).map((p: any) => ({ ...p, url: p.s3Url }))
+    }
+
+    return NextResponse.json({ album: normalizedAlbum });
   } catch (error) {
     console.error('Erro ao buscar álbum:', error);
     return NextResponse.json(

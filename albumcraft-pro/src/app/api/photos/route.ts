@@ -10,6 +10,7 @@ import {
   sanitizeFileName 
 } from '@/lib/image-processing'
 import { prisma } from '@/lib/prisma'
+import type { Prisma } from '@prisma/client'
 
 // GET - Buscar fotos do usuário
 export async function GET(request: NextRequest) {
@@ -35,7 +36,7 @@ export async function GET(request: NextRequest) {
     })
 
     // Construir filtros
-    const whereClause: any = {
+    const whereClause: Prisma.PhotoWhereInput = {
       userId: user.userId
     }
 
@@ -56,16 +57,17 @@ export async function GET(request: NextRequest) {
       select: {
           id: true,
           filename: true,
+          originalName: true,
+          mimeType: true,
           s3Url: true,
-
           width: true,
           height: true,
           size: true,
           albumId: true,
-          isS3Stored: true,
           s3Key: true,
-          uploadedAt: true,
-          metadata: true
+          createdAt: true,
+          metadata: true,
+          userId: true
         }
       })
 
@@ -80,9 +82,12 @@ export async function GET(request: NextRequest) {
       where: whereClause
     })
 
+    // Normalizar saída adicionando alias url -> s3Url (compatibilidade com consumidores)
+    const photosPayload = photos.map(p => ({ ...p, url: p.s3Url }))
+
     return NextResponse.json({
       success: true,
-      data: photos,
+      data: photosPayload,
       pagination: {
         total: totalPhotos,
         limit,
@@ -125,24 +130,24 @@ export async function POST(request: NextRequest) {
     
     console.log('📁 Arquivos recebidos:', files.length)
 
-    // Verificar se o projeto existe e pertence ao usuário (se albumId foi fornecido)
+    // Verificar se o álbum existe e pertence ao usuário (se albumId foi fornecido)
     if (albumId) {
-      console.log('3. Verificando se o projeto existe...')
-      const projectExists = await prisma.project.findFirst({
+      console.log('3. Verificando se o álbum existe...')
+      const albumExists = await prisma.album.findFirst({
         where: {
           id: albumId,
           userId: user.userId,
         },
       })
 
-      if (!projectExists) {
-        console.log('❌ Projeto não encontrado ou não pertence ao usuário')
+      if (!albumExists) {
+        console.log('❌ Álbum não encontrado ou não pertence ao usuário')
         return NextResponse.json({
           success: false,
-          error: 'Projeto não encontrado ou não pertence ao usuário'
+          error: 'Álbum não encontrado ou não pertence ao usuário'
         }, { status: 404 })
       }
-      console.log('✅ Projeto verificado')
+      console.log('✅ Álbum verificado')
     }
 
     if (!files || files.length === 0) {
@@ -261,13 +266,13 @@ export async function POST(request: NextRequest) {
             userId: user.userId,
             albumId: albumId || null, // Associar ao álbum se fornecido
             filename: sanitizedFileName,
+            originalName: file.name,
             s3Url: originalUrl,
-            thumbnailUrl: thumbnailUrl,
             size: originalMetadata.size,
             width: originalMetadata.width,
             height: originalMetadata.height,
             mimeType: file.type,
-            s3Key: isS3Configured() ? generateS3Key(user.userId, sanitizedFileName, albumId || undefined) : null,
+            s3Key: generateS3Key(user.userId, sanitizedFileName, albumId || undefined),
           }
         })
         console.log(`✅ Foto salva no banco`)
@@ -276,11 +281,12 @@ export async function POST(request: NextRequest) {
           id: photo.id,
           name: photo.filename,
           url: photo.s3Url,
-          width: photo.width,
-          height: photo.height,
+          width: photo.width ?? 0,
+          height: photo.height ?? 0,
           fileSize: photo.size,
-            uploadedAt: photo.createdAt?.toISOString() || new Date().toISOString(),
-          albumId: photo.albumId // Incluir albumId na resposta
+          uploadedAt: photo.createdAt?.toISOString() || new Date().toISOString(),
+          albumId: photo.albumId, // Incluir albumId na resposta
+          thumbnailUrl: thumbnailUrl
         })
 
       } catch (fileError) {

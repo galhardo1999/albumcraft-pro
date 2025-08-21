@@ -188,7 +188,7 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Carregando projeto...</p>
+          <p className="mt-4 text-gray-600">Carregando álbum...</p>
         </div>
       </div>
     );
@@ -198,10 +198,10 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <p className="text-gray-600 text-lg mb-4">Projeto não encontrado</p>
+          <p className="text-gray-600 text-lg mb-4">Álbum não encontrado</p>
           <Button onClick={() => router.push('/admin/projetos')} className="bg-blue-600 hover:bg-blue-700">
             <ArrowLeft className="h-4 w-4 mr-2" />
-            Voltar aos Projetos
+            Voltar aos Álbuns
           </Button>
         </div>
       </div>

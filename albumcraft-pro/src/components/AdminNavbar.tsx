@@ -46,7 +46,7 @@ export function AdminNavbar({ activeTab = 'overview', onTabChange }: AdminSideba
       id: 'albums',
       label: 'Álbuns',
       icon: FolderOpen,
-      href: '/admin/albums'
+      href: '/admin/projetos'
     },
     {
       id: 'photos',

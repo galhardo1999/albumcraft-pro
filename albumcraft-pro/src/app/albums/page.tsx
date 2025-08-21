@@ -6,26 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useProtectedRoute } from '@/hooks/useAuth'
 import { getAlbumSizeByIdWithFallback, formatSizeDisplay } from '@/lib/album-sizes'
-
-interface Project {
-  id: string
-  name: string
-  description?: string
-  albumSize: string
-  status: string
-  creationType: string
-  group?: string
-  createdAt: string
-  updatedAt: string
-  photos?: Array<{
-    id: string
-    filename: string
-    thumbnailUrl: string
-  }>
-  _count: {
-    pages: number
-  }
-}
+import { Project } from '@/types'
 
 export default function ProjectsPage() {
   const { logout } = useProtectedRoute()
@@ -41,7 +22,7 @@ export default function ProjectsPage() {
   const [projectToDelete, setProjectToDelete] = useState<Project | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
-  const [viewMode, setViewMode] = useState<'list' | 'groups'>('list')
+  const [viewMode, setViewMode] = useState<'grid' | 'list' | 'groups'>('grid')
   const [deleteGroupModalOpen, setDeleteGroupModalOpen] = useState(false)
   const [groupToDelete, setGroupToDelete] = useState<string | null>(null)
   const [isDeletingGroup, setIsDeletingGroup] = useState(false)

@@ -67,7 +67,8 @@ export async function GET(
     const zip = new JSZip()
 
     // Função para baixar imagem e adicionar ao ZIP
-    const addPhotoToZip = async (photo: any, albumName: string) => {
+    type EventPhoto = { id: string; filename: string; url: string }
+    const addPhotoToZip = async (photo: EventPhoto, albumName: string) => {
       try {
         const response = await fetch(photo.url)
         if (!response.ok) {

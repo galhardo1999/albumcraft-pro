@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { OAuth2Client } from 'google-auth-library'
 import { prisma } from '@/lib/prisma'
-import { SignJWT } from 'jose'
-
-const secret = new TextEncoder().encode(process.env.NEXTAUTH_SECRET || 'fallback-secret')
+import { createJWTToken } from '@/lib/jwt-config'
+import { setAuthCookie } from '@/lib/cookie-config'
+import { rateLimit, rateLimitConfigs, createRateLimitResponse, addRateLimitHeaders } from '@/lib/rate-limit'
 
 const client = new OAuth2Client(
   process.env.GOOGLE_CLIENT_ID,
@@ -11,8 +11,16 @@ const client = new OAuth2Client(
   `${process.env.NEXTAUTH_URL}/api/auth/google/callback`
 )
 
+const googleOAuthRateLimit = rateLimit(rateLimitConfigs.oauth)
+
 // GET /api/auth/google - Redirecionar para Google OAuth
-export async function GET() {
+export async function GET(request: NextRequest) {
+  // Aplicar rate limiting
+  const rateLimitResult = await googleOAuthRateLimit(request)
+  
+  if (!rateLimitResult.success) {
+    return createRateLimitResponse(rateLimitResult.retryAfter!)
+  }
   try {
     const authUrl = client.generateAuthUrl({
       access_type: 'offline',
@@ -33,6 +41,13 @@ export async function GET() {
 // POST /api/auth/google - Processar callback do Google
 export async function POST(request: NextRequest) {
   try {
+    // Aplicar rate limiting
+    const rateLimitResult = await googleOAuthRateLimit(request)
+    
+    if (!rateLimitResult.success) {
+      return createRateLimitResponse(rateLimitResult.retryAfter!)
+    }
+
     const { code } = await request.json()
 
     if (!code) {
@@ -97,16 +112,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Gerar JWT token
-    const token = await new SignJWT({ 
+    const token = await createJWTToken({ 
       userId: user.id,
       email: user.email,
-      name: user.name,
+      plan: user.plan,
       isAdmin: user.isAdmin
-    })
-      .setProtectedHeader({ alg: 'HS256' })
-      .setIssuedAt()
-      .setExpirationTime('7d')
-      .sign(secret)
+    }, '7d')
 
     // Criar resposta com cookie
     const response = NextResponse.json({
@@ -120,14 +131,15 @@ export async function POST(request: NextRequest) {
     })
 
     // Definir cookie de autenticação
-    response.cookies.set('auth-token', token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 7 * 24 * 60 * 60 // 7 dias
-    })
+    setAuthCookie(response, token)
 
-    return response
+    // Adicionar headers de rate limit
+    return addRateLimitHeaders(
+      response,
+      rateLimitResult.remaining,
+      rateLimitResult.resetTime,
+      rateLimitConfigs.oauth.maxRequests
+    )
   } catch (error) {
     console.error('Erro no login com Google:', error)
     return NextResponse.json(

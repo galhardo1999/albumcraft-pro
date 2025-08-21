@@ -5,44 +5,32 @@ import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import DiagramadorWorkspace from '@/components/diagramador/DiagramadorWorkspace'
 import { useAuth } from '@/hooks/useAuth'
-
-interface Project {
-  id: string
-  name: string
-  description?: string
-  albumSize: string
-  status: string
-  creationType: string
-  group?: string
-  createdAt: string
-  updatedAt: string
-  _count: {
-    pages: number
-  }
-}
+import Link from 'next/link'
+import { ArrowLeft } from 'lucide-react'
+import { Album } from '@/types/album'
 
 export default function ProjectDiagramadorPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params)
   const router = useRouter()
   const { logout } = useAuth()
-  const [project, setProject] = useState<Project | null>(null)
+  const [album, setAlbum] = useState<Album | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
 
-  const fetchProject = useCallback(async () => {
+  const fetchAlbum = useCallback(async () => {
     try {
       setIsLoading(true)
       const response = await fetch(`/api/albums/${resolvedParams.id}`)
       
       if (response.ok) {
         const data = await response.json()
-        setProject(data.data)
+        setAlbum(data.data)
       } else {
-        setError('Projeto não encontrado')
+        setError('Álbum não encontrado')
       }
     } catch (err) {
-      setError('Erro ao carregar projeto')
-      console.error('Error fetching project:', err)
+      setError('Erro ao carregar álbum')
+      console.error('Error fetching album:', err)
     } finally {
       setIsLoading(false)
     }
@@ -50,11 +38,11 @@ export default function ProjectDiagramadorPage({ params }: { params: Promise<{ i
 
   useEffect(() => {
     if (resolvedParams.id) {
-      fetchProject()
+      fetchAlbum()
     }
-  }, [resolvedParams.id, fetchProject])
+  }, [resolvedParams.id, fetchAlbum])
 
-  // Prevenir scroll na página do diagramador
+ // Prevenir scroll na página do diagramador
   useEffect(() => {
     // Adicionar classe ao body para prevenir scroll
     document.body.style.overflow = 'hidden'
@@ -74,21 +62,22 @@ export default function ProjectDiagramadorPage({ params }: { params: Promise<{ i
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Carregando projeto...</p>
+          <p className="text-muted-foreground">Carregando álbum...</p>
         </div>
       </div>
     )
   }
 
-  if (error || !project) {
+  if (error || !album) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <h1 className="text-2xl font-bold mb-4">Erro</h1>
           <p className="text-muted-foreground mb-6">{error}</p>
-          <Button onClick={() => router.push('/albums')}>
-            Voltar aos Projetos
-          </Button>
+          <Link href="/albums" className="inline-flex items-center text-sm text-blue-600 hover:underline">
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Voltar aos Álbuns
+          </Link>
         </div>
       </div>
     )
@@ -111,9 +100,9 @@ export default function ProjectDiagramadorPage({ params }: { params: Promise<{ i
               Voltar
             </Button>
             <div>
-              <h1 className="text-xl font-semibold">{project.name}</h1>
+              <h1 className="text-xl font-semibold">{album.name}</h1>
               <p className="text-sm text-muted-foreground">
-                {project.description || 'Diagramador de Álbum'}
+                {album.description || 'Diagramador de Álbum'}
               </p>
             </div>
           </div>
@@ -133,7 +122,7 @@ export default function ProjectDiagramadorPage({ params }: { params: Promise<{ i
       </header>
 
       {/* Diagramador Workspace */}
-      <DiagramadorWorkspace project={project} />
+      <DiagramadorWorkspace album={album} />
     </div>
   )
 }

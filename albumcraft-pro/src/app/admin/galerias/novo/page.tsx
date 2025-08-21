@@ -47,6 +47,12 @@ interface UploadedFile {
   originalPath?: string;
 }
 
+interface FileWithPath {
+  webkitRelativePath?: string;
+  path?: string;
+  name: string;
+}
+
 export default function NovoEventoPage() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
@@ -107,8 +113,8 @@ export default function NovoEventoPage() {
     console.log('Files dropped:', acceptedFiles);
     console.log('Files with paths:', acceptedFiles.map(f => ({
       name: f.name,
-      webkitRelativePath: (f as any).webkitRelativePath,
-      path: (f as any).path
+      webkitRelativePath: (f as FileWithPath).webkitRelativePath,
+      path: (f as FileWithPath).path
     })));
     
     // Filtrar apenas arquivos válidos
@@ -117,7 +123,7 @@ export default function NovoEventoPage() {
     // Processar arquivos aceitos
     const newFiles: UploadedFile[] = validFiles.map(file => {
       // Extrair informações da pasta se disponível
-      const filePath = (file as any).webkitRelativePath || (file as any).path || file.name;
+      const filePath = (file as FileWithPath).webkitRelativePath || (file as FileWithPath).path || file.name;
       console.log('Processing file:', file.name, 'Path:', filePath);
       
       const pathParts = filePath.split('/').filter((part: string) => part.length > 0);
@@ -558,7 +564,7 @@ export default function NovoEventoPage() {
                     <input
                        type="file"
                        multiple
-                       {...({ webkitdirectory: '', directory: '' } as any)}
+                       {...({ webkitdirectory: '', directory: '' } as React.InputHTMLAttributes<HTMLInputElement>)}
                        onChange={(e) => {
                          if (e.target.files) {
                            const files = Array.from(e.target.files);

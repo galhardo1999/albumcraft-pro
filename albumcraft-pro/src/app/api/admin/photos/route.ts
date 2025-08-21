@@ -50,7 +50,11 @@ export async function GET(request: NextRequest) {
     })
 
     // Construir filtros
-    const whereClause: any = {}
+    const whereClause: {
+      userId?: string;
+      albumId?: string;
+      filename?: { contains: string; mode: 'insensitive' };
+    } = {}
 
     // Filtrar por usuário se especificado
     if (userId) {
@@ -81,7 +85,7 @@ export async function GET(request: NextRequest) {
         albumId: true,
           userId: true,
         s3Key: true,
-        uploadedAt: true,
+        createdAt: true,
         metadata: true,
         user: {
           select: {
@@ -99,9 +103,12 @@ export async function GET(request: NextRequest) {
       where: whereClause
     })
 
+    // Normalizar saída adicionando alias url -> s3Url (compatibilidade com consumidores)
+    const photosPayload = photos.map(p => ({ ...p, url: p.s3Url }))
+
     return NextResponse.json({
       success: true,
-      data: photos,
+      data: photosPayload,
       pagination: {
         total: totalPhotos,
         limit,
@@ -188,24 +195,24 @@ export async function POST(request: NextRequest) {
       }, { status: 404 })
     }
 
-    // Verificar se o projeto existe e pertence ao usuário alvo (se albumId fornecido)
+    // Verificar se o álbum existe e pertence ao usuário alvo (se albumId fornecido)
     if (albumId) {
-      console.log('3. Verificando projeto...')
-      const projectExists = await prisma.project.findFirst({
+      console.log('3. Verificando álbum...')
+      const albumExists = await prisma.album.findFirst({
         where: {
           id: albumId,
           userId: targetUserId,
         },
       })
 
-      if (!projectExists) {
-        console.log('❌ Projeto não encontrado ou não pertence ao usuário')
+      if (!albumExists) {
+        console.log('❌ Álbum não encontrado ou não pertence ao usuário')
         return NextResponse.json({
           success: false,
-          error: 'Projeto não encontrado ou não pertence ao usuário'
+          error: 'Álbum não encontrado ou não pertence ao usuário'
         }, { status: 404 })
       }
-      console.log('✅ Projeto verificado')
+      console.log('✅ Álbum verificado')
     }
 
     if (!files || files.length === 0) {
@@ -394,13 +401,14 @@ export async function POST(request: NextRequest) {
               userId: targetUserId, // Usar o ID do usuário alvo
               albumId: albumId || null, // Associar ao álbum se fornecido
               filename: sanitizedFileName,
+              originalName: file.name,
               s3Url: originalUrl,
               
               size: originalMetadata.size,
               width: originalMetadata.width,
               height: originalMetadata.height,
               mimeType: file.type,
-              s3Key: isS3Configured() ? generateS3Key(targetUserId, sanitizedFileName, albumId || undefined) : null,
+              s3Key: isS3Configured() ? generateS3Key(targetUserId, sanitizedFileName, albumId || undefined) : '',
             }
           })
           console.log(`✅ Foto salva no banco (ID: ${photo.id})`)

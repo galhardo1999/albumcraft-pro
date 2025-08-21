@@ -34,10 +34,16 @@ export const GET = withAuth(async (request: NextRequest, user) => {
         where: { userId: user.userId }
       })
     ])
+
+    // Normalizar: adicionar alias url -> s3Url nas fotos dos álbuns
+    const normalizedAlbums = albums.map(a => ({
+      ...a,
+      photos: (a.photos || []).map(p => ({ ...p, url: p.s3Url }))
+    }))
     
     return NextResponse.json({
       success: true,
-      data: albums,
+      data: normalizedAlbums,
       meta: {
         pagination: {
           page,

@@ -192,7 +192,7 @@ export default function SingleAlbumPage() {
       }
 
       const data = await response.json()
-      const albumId = data.project.id
+      const albumId = data.album.id
 
       // 2. Fazer upload das fotos temporárias
       if (photos.length > 0) {

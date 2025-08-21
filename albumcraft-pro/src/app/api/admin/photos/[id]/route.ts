@@ -96,7 +96,7 @@ export async function PATCH(
 
     return NextResponse.json({
       success: true,
-      data: updatedPhoto,
+      data: { ...updatedPhoto, url: updatedPhoto.s3Url },
       message: 'Foto atualizada com sucesso'
     })
 

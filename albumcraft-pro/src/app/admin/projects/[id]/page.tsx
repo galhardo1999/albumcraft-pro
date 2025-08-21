@@ -171,7 +171,7 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Carregando projeto...</p>
+          <p className="mt-4 text-gray-600">Carregando álbum...</p>
         </div>
       </div>
     );
@@ -181,7 +181,7 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <p className="text-gray-600">Projeto não encontrado</p>
+          <p className="text-gray-600">Álbum não encontrado</p>
           <Button onClick={() => router.push('/admin')} className="mt-4">
             Voltar ao Dashboard
           </Button>

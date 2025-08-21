@@ -15,14 +15,14 @@ export async function GET(request: NextRequest) {
       // Total de usuários
       prisma.user.count(),
       
-      // Total de projetos
-      prisma.project.count(),
+      // Total de álbuns
+      prisma.album.count(),
       
       // Total de fotos
       prisma.photo.count(),
       
-      // Projetos por status
-      prisma.project.groupBy({
+      // Álbuns por status
+      prisma.album.groupBy({
         by: ['status'],
         _count: {
           status: true
@@ -37,8 +37,8 @@ export async function GET(request: NextRequest) {
         }
       }),
       
-      // Projetos criados nos últimos 30 dias
-      prisma.project.count({
+      // Álbuns criados nos últimos 30 dias
+      prisma.album.count({
         where: {
           createdAt: {
             gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)

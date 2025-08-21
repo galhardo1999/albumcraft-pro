@@ -3,9 +3,19 @@ import { prisma } from '@/lib/prisma'
 import { AuthService } from '@/lib/auth'
 import { ForgotPasswordSchema } from '@/lib/validations'
 import { z } from 'zod'
+import { rateLimit, rateLimitConfigs, createRateLimitResponse, addRateLimitHeaders } from '@/lib/rate-limit'
+
+const forgotPasswordRateLimit = rateLimit(rateLimitConfigs.passwordReset)
 
 export async function POST(request: NextRequest) {
   try {
+    // Aplicar rate limiting
+    const rateLimitResult = await forgotPasswordRateLimit(request)
+    
+    if (!rateLimitResult.success) {
+      return createRateLimitResponse(rateLimitResult.retryAfter!)
+    }
+
     const body = await request.json()
     
     // Validar dados de entrada
@@ -25,15 +35,15 @@ export async function POST(request: NextRequest) {
       })
     }
     
-    // Gerar token de reset
-    const resetToken = AuthService.generateSecureToken()
+    // Gerar token de reset seguro
+    const { token, hashedToken } = AuthService.generateResetToken()
     const resetExpires = new Date(Date.now() + 60 * 60 * 1000) // 1 hora
-    
-    // Salvar token no banco
+
+    // Salvar apenas o hash do token no banco (nunca o token original)
     await prisma.user.update({
       where: { id: user.id },
       data: {
-        resetPasswordToken: resetToken,
+        resetPasswordToken: hashedToken,
         resetPasswordExpires: resetExpires
       }
     })
@@ -58,10 +68,18 @@ export async function POST(request: NextRequest) {
     })
     */
     
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       message: 'Se o email estiver cadastrado, você receberá um link de recuperação'
     })
+    
+    // Adicionar headers de rate limit
+    return addRateLimitHeaders(
+      response,
+      rateLimitResult.remaining,
+      rateLimitResult.resetTime,
+      rateLimitConfigs.passwordReset.maxRequests
+    )
     
   } catch (error) {
     console.error('Erro ao processar solicitação de reset:', error)

@@ -46,6 +46,20 @@ interface ExistingPhoto {
   createdAt: string
 }
 
+interface ApiPhotoData {
+  id: string
+  s3Url?: string
+  originalUrl?: string
+  url?: string
+  filename?: string
+  name?: string
+  width?: number
+  height?: number
+  size?: number
+  fileSize?: number
+  albumId?: string | null
+}
+
 // Interface unificada para fotos (persistidas ou temporárias)
 type PhotoItem = Photo | TempPhoto
 
@@ -169,13 +183,27 @@ export default function CreateMultipleAlbumsModal({ isOpen, onClose, onAlbumsCre
     
     setLoadingExistingPhotos(true)
     try {
-      const response = await fetch(`/api/photos?userId=${userId}`)
-      if (response.ok) {
-        const data = await response.json()
-        setExistingPhotos(data.photos || [])
+      const response = await fetch(`/api/admin/photos?userId=${userId}`, {
+        credentials: 'include',
+      })
+      const result = await response.json().catch(() => null)
+      if (response.ok && result?.success && Array.isArray(result.data)) {
+        const mapped: Photo[] = result.data.map((p: ApiPhotoData) => ({
+          id: p.id,
+          url: p.s3Url ?? p.originalUrl ?? p.url ?? '',
+          name: p.filename ?? p.name ?? 'Foto',
+          width: p.width ?? 0,
+          height: p.height ?? 0,
+          fileSize: p.size ?? p.fileSize ?? 0,
+          albumId: p.albumId ?? null,
+        }))
+        setExistingPhotos(mapped)
+      } else {
+        setExistingPhotos([])
       }
     } catch (error) {
       console.error('Erro ao carregar fotos existentes:', error)
+      setExistingPhotos([])
     } finally {
       setLoadingExistingPhotos(false)
     }
@@ -483,7 +511,27 @@ export default function CreateMultipleAlbumsModal({ isOpen, onClose, onAlbumsCre
       }
 
       const data = await response.json()
-      const createdAlbums = data.projects
+      
+      // Se a criação foi enviada para a fila (useQueue=true), a API não retorna os álbuns prontos
+      // Encerramos o fluxo aqui com sucesso e deixamos o worker processar
+      if (data.useQueue) {
+        // Resetar formulário e fechar modal
+        setFormData({
+          userId: '',
+          group: '',
+          eventName: '',
+          albumSize: 'SIZE_20X20',
+          status: 'DRAFT'
+        })
+        setPhotos([])
+        setFolderStructure({})
+        onAlbumsCreated()
+        onClose()
+        return
+      }
+
+      // Modo síncrono: API retorna { albums: [...] }
+      const createdAlbums = data.albums || data.projects
 
       // Processar fotos para cada álbum criado
       if (createdAlbums && createdAlbums.length > 0) {
