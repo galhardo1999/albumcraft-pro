@@ -57,7 +57,7 @@ interface DiagramCanvasProps {
   onElementSelect: (element: DiagramElement) => void
   onPageSelect: (page: 'left' | 'right') => void
   onDeselectAll: () => void
-  onPhotoDrop: (x: number, y: number, page: 'left' | 'right') => void
+  onPhotoDrop: (x: number, y: number, page: 'left' | 'right', targetElementId?: string) => void
   draggedPhoto: Photo | null
   zoomLevel?: number
 }
@@ -180,7 +180,7 @@ export default function DiagramCanvas({
       const page = getPageFromCoordinates(x)
       const adjustedX = adjustCoordinatesForPage(x, page)
       
-      onPhotoDrop(adjustedX - 100, y - 75, page) // Centralizar a foto no cursor
+      onPhotoDrop(adjustedX, y, page) // Coordenadas cruas; centralização ocorrerá no Workspace conforme tamanho do elemento
     }
     setShowGuides(false)
   }
@@ -192,98 +192,118 @@ export default function DiagramCanvas({
 
 
   // Renderizar elemento
-  const renderElement = (element: DiagramElement, page: 'left' | 'right') => {
-    const isSelected = selectedElement?.id === element.id
-    const pageOffsetX = page === 'right' ? albumConfig.width : 0
-    
-    const style = {
-      position: 'absolute' as const,
-      left: (element.x + pageOffsetX) * scale,
-      top: element.y * scale,
-      width: element.width * scale,
-      height: element.height * scale,
-      transform: `rotate(${element.rotation}deg)`,
-      opacity: element.opacity,
-      zIndex: element.zIndex,
-      cursor: 'move'
-    }
+  const renderElement = (element: DiagramElement, page: 'left' | 'right', index?: number) => {
+     const isSelected = selectedElement?.id === element.id
+     // Removido offset adicional aqui, pois os elementos já são renderizados dentro do container da página,
+     // que por sua vez já possui o deslocamento (left) aplicado em renderPage.
+     const elementData = element.data as Record<string, unknown>
+     const hasImage = typeof elementData?.url === 'string' && (elementData.url as string).length > 0
+     const isPlaceholder = !hasImage || (element.data as Record<string, unknown>)?.placeholder === true
+     
+     const style = {
+       position: 'absolute' as const,
+       left: element.x * scale,
+       top: element.y * scale,
+       width: element.width * scale,
+       height: element.height * scale,
+       transform: `rotate(${element.rotation}deg)`,
+       opacity: element.opacity,
+       zIndex: element.zIndex,
+       cursor: 'move'
+     }
 
-    const className = `border-2 transition-colors ${
-      isSelected 
-        ? 'border-primary shadow-lg' 
-        : 'border-transparent hover:border-primary/50'
-    }`
+     const className = `border-2 transition-colors ${
+       isSelected 
+         ? 'border-primary shadow-lg' 
+         : isPlaceholder ? 'border-dashed border-muted-foreground/50' : 'border-transparent hover:border-primary/50'
+     }`
 
-    if (element.type === 'photo') {
-      return (
-        <div
-          key={element.id}
-          style={style}
-          className={className}
-          onClick={(e) => {
-            e.stopPropagation()
-            onElementSelect(element)
-          }}
-        >
-          <Image
-            src={element.data.url as string}
-            alt="Photo"
-            width={element.width}
-            height={element.height}
-            className="w-full h-full object-cover rounded"
-            draggable={false}
-          />
+     if (element.type === 'photo') {
+       return (
+         <div
+          key={`${element.id}-${index ?? 0}`}
+           style={style}
+           className={className}
+           onClick={(e) => {
+             e.stopPropagation()
+             onElementSelect(element)
+           }}
+           onDragOver={(e) => {
+             if (draggedPhoto) e.preventDefault()
+           }}
+           onDrop={(e) => {
+             if (draggedPhoto) {
+               e.preventDefault()
+               e.stopPropagation()
+               onPhotoDrop(element.x, element.y, page, element.id)
+             }
+           }}
+         >
+           {hasImage ? (
+             <Image
+               src={(element.data as Record<string, unknown>).url as string}
+               alt="Photo"
+               width={element.width}
+               height={element.height}
+               className="w-full h-full object-cover rounded"
+               draggable={false}
+             />
+           ) : (
+             <div className="w-full h-full flex items-center justify-center bg-muted/10 text-muted-foreground text-xs select-none">
+               Solte uma foto aqui
+             </div>
+           )}
           
-          {/* Handles de redimensionamento */}
-          {isSelected && (
-            <>
-              <div className="absolute -top-1 -left-1 w-3 h-3 bg-primary rounded-full cursor-nw-resize" />
-              <div className="absolute -top-1 -right-1 w-3 h-3 bg-primary rounded-full cursor-ne-resize" />
-              <div className="absolute -bottom-1 -left-1 w-3 h-3 bg-primary rounded-full cursor-sw-resize" />
-              <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-primary rounded-full cursor-se-resize" />
-            </>
-          )}
-        </div>
-      )
-    }
+           {/* Handles de redimensionamento */}
+           {isSelected && (
+             <>
+               <div className="absolute -top-1 -left-1 w-3 h-3 bg-primary rounded-full cursor-nw-resize" />
+               <div className="absolute -top-1 -right-1 w-3 h-3 bg-primary rounded-full cursor-ne-resize" />
+               <div className="absolute -bottom-1 -left-1 w-3 h-3 bg-primary rounded-full cursor-sw-resize" />
+               <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-primary rounded-full cursor-se-resize" />
+             </>
+           )}
+         </div>
+       )
+     }
 
-    if (element.type === 'text') {
-      return (
-        <div
-          key={element.id}
-          style={style}
-          className={`${className} flex items-center justify-center bg-white/80 rounded`}
-          onClick={(e) => {
-            e.stopPropagation()
-            onElementSelect(element)
-          }}
-        >
-          <span
-            style={{
-              fontSize: (typeof element.data.fontSize === 'number' ? element.data.fontSize : 16) * scale,
-              fontFamily: (typeof element.data.fontFamily === 'string' ? element.data.fontFamily : 'Arial') as React.CSSProperties['fontFamily'],
-              color: (typeof element.data.color === 'string' ? element.data.color : '#000000') as React.CSSProperties['color'],
-              textAlign: (typeof element.data.align === 'string' ? element.data.align : 'left') as React.CSSProperties['textAlign']
-            }}
-          >
-            {(typeof element.data.text === 'string' ? element.data.text : 'Texto')}
-          </span>
+     if (element.type === 'text') {
+       return (
+         <div
+          key={`${element.id}-${index ?? 0}`}
+           style={style}
+           className={`${className} flex items-center justify-center bg-white/80 rounded`}
+           onClick={(e) => {
+             e.stopPropagation()
+             onElementSelect(element)
+           }}
+         >
+           <span
+             style={{
+               fontSize: (typeof element.data.fontSize === 'number' ? element.data.fontSize : 16) * scale,
+               fontFamily: (typeof element.data.fontFamily === 'string' ? element.data.fontFamily : 'Arial') as React.CSSProperties['fontFamily'],
+               color: (typeof element.data.color === 'string' ? element.data.color : '#000000') as React.CSSProperties['color'],
+               textAlign: (typeof element.data.align === 'string' ? element.data.align : 'left') as React.CSSProperties['textAlign']
+             }}
+           >
+             {(typeof element.data.text === 'string' ? element.data.text : 'Texto')}
+           </span>
           
-          {/* Handles de redimensionamento */}
-          {isSelected && (
-            <>
-              <div className="absolute -top-1 -left-1 w-3 h-3 bg-primary rounded-full cursor-nw-resize" />
-              <div className="absolute -top-1 -right-1 w-3 h-3 bg-primary rounded-full cursor-ne-resize" />
-              <div className="absolute -bottom-1 -left-1 w-3 h-3 bg-primary rounded-full cursor-sw-resize" />
-              <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-primary rounded-full cursor-se-resize" />
-            </>
-          )}
-        </div>
-      )
-    }
+           {/* Handles de redimensionamento */}
+           {isSelected && (
+             <>
+               <div className="absolute -top-1 -left-1 w-3 h-3 bg-primary rounded-full cursor-nw-resize" />
+               <div className="absolute -top-1 -right-1 w-3 h-3 bg-primary rounded-full cursor-ne-resize" />
+               <div className="absolute -bottom-1 -left-1 w-3 h-3 bg-primary rounded-full cursor-sw-resize" />
+               <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-primary rounded-full cursor-se-resize" />
+             </>
+           )}
+         </div>
+       )
+     }
 
-    return null
-  }
+     return null
+   }
 
   // Renderizar página
   const renderPage = (page: 'left' | 'right') => {
@@ -339,20 +359,13 @@ export default function DiagramCanvas({
         </div>
         
         {/* Elementos da página */}
-        {pageData.elements.map(element => renderElement(element, page))}
+        {pageData.elements.map((element, index) => renderElement(element, page, index))}
       </div>
     )
   }
 
   return (
     <div className="h-full flex flex-col bg-muted/10">
-      {/* Informações do Album */}
-      <div className="flex items-center justify-center p-4 border-b bg-card">
-        <div className="text-sm text-muted-foreground">
-          {albumConfig.width}×{albumConfig.height}px • {albumConfig.dpi} DPI • Zoom: 100%
-        </div>
-      </div>
-
       {/* Canvas Principal */}
       <div className="flex-1 overflow-auto bg-gray-100 p-8">
         <div className="flex justify-center">
@@ -402,24 +415,6 @@ export default function DiagramCanvas({
                 ))}
               </>
             )}
-          </div>
-        </div>
-      </div>
-
-      {/* Legenda */}
-      <div className="border-t bg-card p-2">
-        <div className="flex items-center justify-center space-x-6 text-xs text-muted-foreground">
-          <div className="flex items-center">
-            <div className="w-3 h-3 border border-red-300 border-dashed mr-2" />
-            Área de Sangria
-          </div>
-          <div className="flex items-center">
-            <div className="w-3 h-3 border border-blue-300 border-dashed mr-2" />
-            Área de Segurança
-          </div>
-          <div className="flex items-center">
-            <div className="w-3 h-3 border-2 border-primary mr-2" />
-            Selecionado
           </div>
         </div>
       </div>

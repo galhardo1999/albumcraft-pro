@@ -55,55 +55,19 @@ interface ToolsPanelProps {
 const layoutTemplates: LayoutTemplate[] = [
   {
     id: 'single-center',
-    name: 'Foto Central',
+    name: '1 Foto (Central)',
     preview: '🖼️',
     photoCount: 1,
-    layout: [{ x: 100, y: 100, width: 300, height: 200 }]
+    layout: [{ x: 675, y: 400, width: 1350, height: 2000 }]
   },
   {
     id: 'two-horizontal',
-    name: 'Duas Horizontais',
+    name: '2 Fotos (Lado a Lado)',
     preview: '🖼️🖼️',
     photoCount: 2,
     layout: [
-      { x: 50, y: 100, width: 180, height: 120 },
-      { x: 270, y: 100, width: 180, height: 120 }
-    ]
-  },
-  {
-    id: 'three-mixed',
-    name: 'Três Mistas',
-    preview: '🖼️\n🖼️🖼️',
-    photoCount: 3,
-    layout: [
-      { x: 50, y: 50, width: 400, height: 150 },
-      { x: 50, y: 220, width: 180, height: 120 },
-      { x: 270, y: 220, width: 180, height: 120 }
-    ]
-  },
-  {
-    id: 'four-grid',
-    name: 'Grade 2x2',
-    preview: '🖼️🖼️\n🖼️🖼️',
-    photoCount: 4,
-    layout: [
-      { x: 50, y: 50, width: 180, height: 120 },
-      { x: 270, y: 50, width: 180, height: 120 },
-      { x: 50, y: 200, width: 180, height: 120 },
-      { x: 270, y: 200, width: 180, height: 120 }
-    ]
-  },
-  {
-    id: 'collage',
-    name: 'Colagem',
-    preview: '🖼️🖼️\n🖼️🖼️🖼️',
-    photoCount: 5,
-    layout: [
-      { x: 30, y: 30, width: 200, height: 150 },
-      { x: 250, y: 30, width: 200, height: 100 },
-      { x: 250, y: 150, width: 200, height: 100 },
-      { x: 30, y: 200, width: 150, height: 120 },
-      { x: 200, y: 270, width: 250, height: 100 }
+      { x: 675, y: 400, width: 1350, height: 2000 },
+      { x: 675, y: 400, width: 1350, height: 2000 }
     ]
   }
 ]
@@ -127,7 +91,6 @@ export default function ToolsPanel({
   onPageUpdate,
   onApplyLayout
 }: ToolsPanelProps) {
-  const [photoCount, setPhotoCount] = useState(1)
 
   // Renderizar sugestões de layout (quando nenhum elemento está selecionado)
   const renderLayoutSuggestions = () => (
@@ -136,43 +99,28 @@ export default function ToolsPanel({
         <CardTitle className="text-lg">Sugestões de Layout</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div>
-          <Label htmlFor="photo-count">Número de fotos para esta lâmina</Label>
-          <Input
-            id="photo-count"
-            type="number"
-            min="1"
-            max="10"
-            value={photoCount}
-            onChange={(e) => setPhotoCount(parseInt(e.target.value) || 1)}
-            className="mt-1"
-          />
-        </div>
-        
         <div className="space-y-2">
           <Label>Templates Disponíveis</Label>
           <div className="grid grid-cols-1 gap-2 max-h-96 overflow-y-auto">
-            {layoutTemplates
-              .filter(template => template.photoCount <= photoCount)
-              .map(template => (
-                <Button
-                  key={template.id}
-                  variant="outline"
-                  className="h-auto p-3 text-left justify-start"
-                  onClick={() => selectedPage && onApplyLayout(template, selectedPage)}
-                  disabled={!selectedPage}
-                >
-                  <div className="flex items-center space-x-3">
-                    <div className="text-2xl">{template.preview}</div>
-                    <div>
-                      <div className="font-medium">{template.name}</div>
-                      <div className="text-sm text-muted-foreground">
-                        {template.photoCount} foto{template.photoCount > 1 ? 's' : ''}
-                      </div>
+            {layoutTemplates.map(template => (
+              <Button
+                key={template.id}
+                variant="outline"
+                className="h-auto p-3 text-left justify-start"
+                onClick={() => selectedPage && onApplyLayout(template, selectedPage)}
+                disabled={!selectedPage}
+              >
+                <div className="flex items-center space-x-3">
+                  <div className="text-2xl">{template.preview}</div>
+                  <div>
+                    <div className="font-medium">{template.name}</div>
+                    <div className="text-sm text-muted-foreground">
+                      {template.photoCount} foto{template.photoCount > 1 ? 's' : ''}
                     </div>
                   </div>
-                </Button>
-              ))}
+                </div>
+              </Button>
+            ))}
           </div>
         </div>
         
@@ -460,7 +408,12 @@ export default function ToolsPanel({
       {/* Renderizar o painel apropriado baseado na seleção */}
       {selectedElement && selectedElement.type === 'photo' && renderPhotoTools()}
       {selectedElement && selectedElement.type === 'text' && renderTextTools()}
-      {selectedPage && !selectedElement && renderPageTools()}
+      {selectedPage && !selectedElement && (
+        <>
+          {renderLayoutSuggestions()}
+          {renderPageTools()}
+        </>
+      )}
       {!selectedElement && !selectedPage && renderLayoutSuggestions()}
     </div>
   )

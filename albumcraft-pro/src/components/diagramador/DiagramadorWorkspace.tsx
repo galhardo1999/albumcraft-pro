@@ -130,6 +130,9 @@ export default function DiagramadorWorkspace({ album }: DiagramadorWorkspaceProp
   const [panPosition, setPanPosition] = useState({ x: 0, y: 0 })
   const [isPanning, setIsPanning] = useState(false)
   const [lastPanPoint, setLastPanPoint] = useState({ x: 0, y: 0 })
+  const [isZooming, setIsZooming] = useState(false)
+  const [zoomDirection, setZoomDirection] = useState<'in' | 'out' | null>(null)
+  const zoomIntervalRef = useRef<NodeJS.Timeout | null>(null)
   
   // Refs
   const canvasContainerRef = useRef<HTMLDivElement>(null)
@@ -148,19 +151,60 @@ export default function DiagramadorWorkspace({ album }: DiagramadorWorkspaceProp
     })
 
   // Controles de zoom
-  const zoomLevels = [0.1, 0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 2.0, 3.0, 4.0]
+  const MIN_ZOOM = 0.1
+  const MAX_ZOOM = 4.0
+  const ZOOM_STEP = 0.01 // 1%
   
   const handleZoomIn = () => {
-    const currentIndex = zoomLevels.findIndex(level => level >= zoomLevel)
-    const nextIndex = Math.min(currentIndex + 1, zoomLevels.length - 1)
-    setZoomLevel(zoomLevels[nextIndex])
+    setZoomLevel(prev => Math.min(prev + ZOOM_STEP, MAX_ZOOM))
   }
   
   const handleZoomOut = () => {
-    const currentIndex = zoomLevels.findIndex(level => level >= zoomLevel)
-    const prevIndex = Math.max(currentIndex - 1, 0)
-    setZoomLevel(zoomLevels[prevIndex])
+    setZoomLevel(prev => Math.max(prev - ZOOM_STEP, MIN_ZOOM))
   }
+  
+  // Zoom contínuo
+  const startContinuousZoom = (direction: 'in' | 'out') => {
+    setIsZooming(true)
+    setZoomDirection(direction)
+    
+    // Primeiro zoom imediato
+    if (direction === 'in') {
+      handleZoomIn()
+    } else {
+      handleZoomOut()
+    }
+    
+    // Zoom contínuo após 300ms
+    setTimeout(() => {
+      if (zoomIntervalRef.current) clearInterval(zoomIntervalRef.current)
+      zoomIntervalRef.current = setInterval(() => {
+        if (direction === 'in') {
+          setZoomLevel(prev => Math.min(prev + ZOOM_STEP, MAX_ZOOM))
+        } else {
+          setZoomLevel(prev => Math.max(prev - ZOOM_STEP, MIN_ZOOM))
+        }
+      }, 50) // 20 FPS para suavidade
+    }, 300)
+  }
+  
+  const stopContinuousZoom = () => {
+    setIsZooming(false)
+    setZoomDirection(null)
+    if (zoomIntervalRef.current) {
+      clearInterval(zoomIntervalRef.current)
+      zoomIntervalRef.current = null
+    }
+  }
+  
+  // Cleanup do interval
+  useEffect(() => {
+    return () => {
+      if (zoomIntervalRef.current) {
+        clearInterval(zoomIntervalRef.current)
+      }
+    }
+  }, [])
   
   const handleZoomFit = () => {
     if (!canvasContainerRef.current) return
@@ -217,11 +261,8 @@ export default function DiagramadorWorkspace({ album }: DiagramadorWorkspaceProp
     if (e.ctrlKey || e.metaKey) {
       e.preventDefault()
       
-      const delta = e.deltaY > 0 ? -1 : 1
-      const currentIndex = zoomLevels.findIndex(level => level >= zoomLevel)
-      const newIndex = Math.max(0, Math.min(zoomLevels.length - 1, currentIndex + delta))
-      
-      setZoomLevel(zoomLevels[newIndex])
+      const delta = e.deltaY > 0 ? -ZOOM_STEP * 5 : ZOOM_STEP * 5 // 5% por scroll
+      setZoomLevel(prev => Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, prev + delta)))
     }
   }
 
@@ -336,6 +377,15 @@ export default function DiagramadorWorkspace({ album }: DiagramadorWorkspaceProp
     initializeProject()
   }, [initializeProject])
 
+  // Após inicializar (loading concluído), ajustar automaticamente para caber na tela
+  useEffect(() => {
+    if (!isLoading && canvasContainerRef.current) {
+      requestAnimationFrame(() => {
+        handleZoomFit()
+      })
+    }
+  }, [isLoading, albumConfig.width, albumConfig.height])
+
   // Funções de manipulação de lâminas
   const addSpread = () => {
     const newSpread: Spread = {
@@ -389,35 +439,69 @@ export default function DiagramadorWorkspace({ album }: DiagramadorWorkspaceProp
     setDraggedPhoto(photo)
   }
 
-  const handlePhotoDrop = (x: number, y: number, page: 'left' | 'right') => {
-    if (!draggedPhoto) return
-
-    const newElement: DiagramElement = {
-      id: `photo-${Date.now()}`,
-      type: 'photo',
-      x,
-      y,
-      width: 200,
-      height: 150,
-      rotation: 0,
-      opacity: 1,
-      zIndex: spreads[currentSpreadIndex][`${page}Page`].elements.length + 1,
-      data: {
-        url: draggedPhoto.originalUrl,
-        originalWidth: draggedPhoto.width,
-        originalHeight: draggedPhoto.height,
-        zoom: 100,
-        saturation: 100,
-        brightness: 100
-      }
-    }
-
+  // Fun e7 f5es de drag and drop
+  const handlePhotoDrop = (x: number, y: number, page: 'left' | 'right', targetElementId?: string) => {
+    if (!draggedPhoto && !targetElementId) return
+  
     setSpreads(prev => {
       const updated = [...prev]
-      updated[currentSpreadIndex][`${page}Page`].elements.push(newElement)
+      const pageKey = `${page}Page` as const
+      const current = updated[currentSpreadIndex]
+  
+      if (targetElementId) {
+        // Preencher um placeholder existente
+        const elements = current[pageKey].elements
+        const idx = elements.findIndex(el => el.id === targetElementId)
+        if (idx !== -1) {
+          const el = elements[idx]
+          elements[idx] = {
+            ...el,
+            data: {
+              ...(el.data || {}),
+              url: draggedPhoto ? draggedPhoto.originalUrl : (el.data as Record<string, unknown>)?.url,
+              placeholder: false,
+              originalWidth: draggedPhoto ? draggedPhoto.width : (el.data as Record<string, unknown>)?.originalWidth,
+              originalHeight: draggedPhoto ? draggedPhoto.height : (el.data as Record<string, unknown>)?.originalHeight,
+              zoom: 100,
+              saturation: 100,
+              brightness: 100
+            }
+          }
+        }
+        return updated
+      }
+  
+      if (!draggedPhoto) return updated
+  
+      // Inserir nova foto solta livremente no canvas
+      const isPortrait = draggedPhoto.height >= draggedPhoto.width
+      const defaultWidth = isPortrait ? 1350 : 200
+      const defaultHeight = isPortrait ? 2000 : 150
+      
+      const newElement: DiagramElement = {
+        id: `photo-${typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2,8)}`}`,
+        type: 'photo',
+        x: x - defaultWidth / 2,
+        y: y - defaultHeight / 2,
+        width: defaultWidth,
+        height: defaultHeight,
+        rotation: 0,
+        opacity: 1,
+        zIndex: current[pageKey].elements.length + 1,
+        data: {
+          url: draggedPhoto.originalUrl,
+          originalWidth: draggedPhoto.width,
+          originalHeight: draggedPhoto.height,
+          zoom: 100,
+          saturation: 100,
+          brightness: 100
+        }
+      }
+  
+      current[pageKey].elements.push(newElement)
       return updated
     })
-
+  
     setDraggedPhoto(null)
   }
 
@@ -484,45 +568,26 @@ export default function DiagramadorWorkspace({ album }: DiagramadorWorkspaceProp
 
   // Aplicar layout template
   const handleApplyLayout = (template: LayoutTemplate, page: 'left' | 'right') => {
-    // Remover elementos existentes da página
     setSpreads(prev => {
       const updated = [...prev]
-      updated[currentSpreadIndex][`${page}Page`].elements = []
-      return updated
-    })
-
-    // Aplicar novo layout com fotos disponíveis
-    const availablePhotos = photos.slice(0, template.photoCount)
-    
-    template.layout.forEach((position, index) => {
-      if (index < availablePhotos.length) {
-        const photo = availablePhotos[index]
-        const newElement: DiagramElement = {
-          id: `photo-${Date.now()}-${index}`,
-          type: 'photo',
-          x: position.x,
-          y: position.y,
-          width: position.width,
-          height: position.height,
-          rotation: 0,
-          opacity: 1,
-          zIndex: index + 1,
-          data: {
-            url: photo.originalUrl,
-            originalWidth: photo.width,
-            originalHeight: photo.height,
-            zoom: 100,
-            saturation: 100,
-            brightness: 100
-          }
+      const placeholders: DiagramElement[] = template.layout.map((position, index) => ({
+        id: `frame-${typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `${Date.now()}-${index}-${Math.random().toString(36).slice(2,8)}`}`,
+        type: 'photo',
+        x: position.x,
+        y: position.y,
+        width: position.width,
+        height: position.height,
+        rotation: 0,
+        opacity: 1,
+        zIndex: index + 1,
+        data: {
+          url: '',
+          placeholder: true
         }
+      }))
 
-        setSpreads(prev => {
-          const updated = [...prev]
-          updated[currentSpreadIndex][`${page}Page`].elements.push(newElement)
-          return updated
-        })
-      }
+      updated[currentSpreadIndex][`${page}Page`].elements = placeholders
+      return updated
     })
   }
 
@@ -589,7 +654,10 @@ export default function DiagramadorWorkspace({ album }: DiagramadorWorkspaceProp
                 variant="ghost" 
                 size="sm" 
                 onClick={handleZoomOut}
-                disabled={zoomLevel <= zoomLevels[0]}
+                onMouseDown={() => startContinuousZoom('out')}
+                onMouseUp={stopContinuousZoom}
+                onMouseLeave={stopContinuousZoom}
+                disabled={zoomLevel <= MIN_ZOOM}
               >
                 <ZoomOut className="w-4 h-4" />
               </Button>
@@ -613,7 +681,10 @@ export default function DiagramadorWorkspace({ album }: DiagramadorWorkspaceProp
                 variant="ghost" 
                 size="sm" 
                 onClick={handleZoomIn}
-                disabled={zoomLevel >= zoomLevels[zoomLevels.length - 1]}
+                onMouseDown={() => startContinuousZoom('in')}
+                onMouseUp={stopContinuousZoom}
+                onMouseLeave={stopContinuousZoom}
+                disabled={zoomLevel >= MAX_ZOOM}
               >
                 <ZoomIn className="w-4 h-4" />
               </Button>
