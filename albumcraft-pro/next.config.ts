@@ -5,13 +5,13 @@ const nextConfig: NextConfig = {
   experimental: {
     optimizePackageImports: ['@radix-ui/react-slot', 'framer-motion', 'zustand'],
   },
-  
+
   // Pacotes externos para server components
   serverExternalPackages: ['@prisma/client', 'bcryptjs'],
-  
+
   // Forçar renderização dinâmica para evitar problemas de build
   output: 'standalone',
-  
+
   // Configurações de imagem
   images: {
     formats: ['image/webp', 'image/avif'],
@@ -29,7 +29,7 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-  
+
   // Headers de segurança
   async headers() {
     return [
@@ -56,27 +56,23 @@ const nextConfig: NextConfig = {
       },
     ];
   },
-  
+
   // Configurações de build
   typescript: {
     ignoreBuildErrors: false,
   },
-  eslint: {
-    ignoreDuringBuilds: false,
-  },
-  
   // Otimizações de bundle
-  webpack: (config, { isServer }) => {
-    if (!isServer) {
-      config.resolve.fallback = {
-        ...config.resolve.fallback,
-        fs: false,
-        net: false,
-        tls: false,
-      };
-    }
-    return config;
-  },
+  // webpack: (config, { isServer }) => {
+  //   if (!isServer) {
+  //     config.resolve.fallback = {
+  //       ...config.resolve.fallback,
+  //       fs: false,
+  //       net: false,
+  //       tls: false,
+  //     };
+  //   }
+  //   return config;
+  // },
 };
 
 export default nextConfig;

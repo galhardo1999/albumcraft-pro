@@ -9,8 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Upload, FolderOpen, AlertCircle, CheckCircle2 } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { ALBUM_SIZES, type AlbumSizeConfig } from '@/lib/album-sizes'
-
-
+import { DashboardNavbar } from '@/shared/components/navbar'
 
 export default function CreateBatchAlbumsPage() {
   const router = useRouter()
@@ -31,7 +30,7 @@ export default function CreateBatchAlbumsPage() {
   const [sessionId] = useState(() => `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`)
   const [createdAlbums, setCreatedAlbums] = useState<string[]>([])
   const [errors, setErrors] = useState<string[]>([])
-  
+
   // Estados para barra de progresso
   const [isCreatingMultiple, setIsCreatingMultiple] = useState(false)
   const [progress, setProgress] = useState(0)
@@ -43,23 +42,23 @@ export default function CreateBatchAlbumsPage() {
   // Função para obter estrutura de pastas
   const getFolderStructure = (): Map<string, File[]> => {
     const folderStructure = new Map<string, File[]>()
-    
+
     if (!folders) return folderStructure
-    
+
     for (let i = 0; i < folders.length; i++) {
       const file = folders[i]
       const pathParts = file.webkitRelativePath.split('/')
-      
+
       if (pathParts.length >= 2 && file.type.startsWith('image/')) {
         const folderName = pathParts[1] // Segunda parte é o nome da subpasta
-        
+
         if (!folderStructure.has(folderName)) {
           folderStructure.set(folderName, [])
         }
         folderStructure.get(folderName)?.push(file)
       }
     }
-    
+
     return folderStructure
   }
 
@@ -77,20 +76,20 @@ export default function CreateBatchAlbumsPage() {
   // Função para fazer polling do status da fila
   const pollQueueStatus = async (sessionId: string) => {
     setIsPollingStatus(true)
-    
+
     const pollInterval = setInterval(async () => {
       try {
         const response = await fetch(`/api/queue/status?sessionId=${sessionId}`)
         const data = await response.json()
-        
+
         if (data.success) {
           setQueueProgress(data.progress)
-          
+
           // Se o processamento estiver completo, parar o polling e redirecionar
           if (data.isProcessingComplete) {
             clearInterval(pollInterval)
             setIsPollingStatus(false)
-            
+
             // Mostrar mensagem de sucesso
             setTimeout(() => {
               router.push('/albums')
@@ -101,7 +100,7 @@ export default function CreateBatchAlbumsPage() {
         console.error('Erro ao verificar status da fila:', error)
       }
     }, 2000) // Verificar a cada 2 segundos
-    
+
     // Limpar o intervalo após 5 minutos (timeout de segurança)
     setTimeout(() => {
       clearInterval(pollInterval)
@@ -143,7 +142,7 @@ export default function CreateBatchAlbumsPage() {
     try {
       const folders = Array.from(folderStructure.entries())
       setTotalAlbums(folders.length)
-      
+
       // Preparar dados dos álbuns para envio em lote
       const albums = await Promise.all(
         folders.map(async ([folderName, files]) => {
@@ -190,7 +189,7 @@ export default function CreateBatchAlbumsPage() {
       }
 
       const result = await response.json()
-      
+
       if (result.useQueue) {
         // Iniciar polling do status da fila
         pollQueueStatus(sessionId)
@@ -211,304 +210,307 @@ export default function CreateBatchAlbumsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-50 p-4">
-      <div className="max-w-4xl mx-auto">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-8"
-        >
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Criar Múltiplos Álbuns
-          </h1>
-          <p className="text-gray-600">
-            Faça upload de uma pasta com subpastas de fotos para criar múltiplos álbuns automaticamente
-          </p>
-        </motion.div>
+    <div className="min-h-screen bg-background">
+      <DashboardNavbar />
+      <div className="bg-gradient-to-br from-purple-50 to-pink-50 min-h-[calc(100vh-64px)] p-4">
+        <div className="max-w-4xl mx-auto py-8">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-8"
+          >
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">
+              Criar Múltiplos Álbuns
+            </h1>
+            <p className="text-gray-600">
+              Faça upload de uma pasta com subpastas de fotos para criar múltiplos álbuns automaticamente
+            </p>
+          </motion.div>
 
-        <div className="grid gap-6">
-          {/* Configurações Gerais */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Configurações Gerais</CardTitle>
-              <CardDescription>
-                Defina as configurações que serão aplicadas a todos os álbuns
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <Label htmlFor="eventName">Nome do Evento/Escola</Label>
-                <Input
-                  id="eventName"
-                  value={eventName}
-                  onChange={(e) => setEventName(e.target.value)}
-                  placeholder="Ex: Escola ABC, Formatura 2024, Casamento João e Maria"
-                  className="mt-1"
-                />
-              </div>
+          <div className="grid gap-6">
+            {/* Configurações Gerais */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Configurações Gerais</CardTitle>
+                <CardDescription>
+                  Defina as configurações que serão aplicadas a todos os álbuns
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <Label htmlFor="eventName">Nome do Evento/Escola</Label>
+                  <Input
+                    id="eventName"
+                    value={eventName}
+                    onChange={(e) => setEventName(e.target.value)}
+                    placeholder="Ex: Escola ABC, Formatura 2024, Casamento João e Maria"
+                    className="mt-1"
+                  />
+                </div>
 
-              {/* Tamanho do Álbum */}
-              <div>
-                <Label htmlFor="albumSize">Tamanho do Álbum *</Label>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
-                  {/* Filtrar apenas os tamanhos 30x20 e 20x30 */}
-                  {ALBUM_SIZES.filter(size => size.id === 'SIZE_30X20' || size.id === 'SIZE_20X30').map((size) => (
-                    <div
-                      key={size.id}
-                      onClick={() => setSelectedAlbumSize(size.id)}
-                      className={`
-                        relative p-4 border-2 rounded-lg cursor-pointer transition-all duration-200
-                        ${selectedAlbumSize === size.id 
-                          ? 'border-primary bg-primary/5 shadow-md' 
-                          : 'border-gray-200 hover:border-primary/50 hover:bg-gray-50'
-                        }
-                      `}
-                    >
-                      <div className="flex items-center space-x-3">
-                        <div className={`
-                          w-5 h-5 rounded-full border-2 flex items-center justify-center
-                          ${selectedAlbumSize === size.id 
-                            ? 'border-primary bg-primary' 
-                            : 'border-gray-300'
+                {/* Tamanho do Álbum */}
+                <div>
+                  <Label htmlFor="albumSize">Tamanho do Álbum *</Label>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
+                    {/* Filtrar apenas os tamanhos 30x20 e 20x30 */}
+                    {ALBUM_SIZES.filter(size => size.id === 'SIZE_30X20' || size.id === 'SIZE_20X30').map((size) => (
+                      <div
+                        key={size.id}
+                        onClick={() => setSelectedAlbumSize(size.id)}
+                        className={`
+                          relative p-4 border-2 rounded-lg cursor-pointer transition-all duration-200
+                          ${selectedAlbumSize === size.id
+                            ? 'border-primary bg-primary/5 shadow-md'
+                            : 'border-gray-200 hover:border-primary/50 hover:bg-gray-50'
                           }
-                        `}>
-                          {selectedAlbumSize === size.id && (
-                            <div className="w-2 h-2 bg-white rounded-full" />
-                          )}
-                        </div>
-                        <div>
-                          <div className="font-medium text-gray-900">
-                            {size.displayName}
+                        `}
+                      >
+                        <div className="flex items-center space-x-3">
+                          <div className={`
+                            w-5 h-5 rounded-full border-2 flex items-center justify-center
+                            ${selectedAlbumSize === size.id
+                              ? 'border-primary bg-primary'
+                              : 'border-gray-300'
+                            }
+                          `}>
+                            {selectedAlbumSize === size.id && (
+                              <div className="w-2 h-2 bg-white rounded-full" />
+                            )}
+                          </div>
+                          <div>
+                            <div className="font-medium text-gray-900">
+                              {size.displayName}
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
-              </div>
 
-              <div className="flex items-center space-x-2">
-                <input
-                  type="checkbox"
-                  id="applyToAll"
-                  checked={applyToAll}
-                  onChange={(e) => setApplyToAll(e.target.checked)}
-                  className="rounded"
-                />
-                <Label htmlFor="applyToAll">
-                  Aplicar configurações para todos os álbuns
-                </Label>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Upload de Pastas */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Upload de Pastas</CardTitle>
-              <CardDescription>
-                Selecione a pasta principal que contém as subpastas com fotos
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div 
-                onClick={() => document.getElementById('folder-upload')?.click()}
-                className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer hover:border-primary/50 hover:bg-muted/20 transition-colors"
-              >
-                <FolderOpen className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                <div className="mb-4">
-                  <span className="text-lg font-medium text-gray-900">
-                    Clique para selecionar pasta
-                  </span>
-                  <p className="text-sm text-gray-500 mt-1">
-                    Selecione a pasta que contém as subpastas com fotos
-                  </p>
+                <div className="flex items-center space-x-2">
                   <input
-                    id="folder-upload"
-                    type="file"
-                    // @ts-expect-error - webkitdirectory não está nos tipos padrão
-                    webkitdirectory=""
-                    multiple
-                    onChange={handleFolderUpload}
-                    className="hidden"
-                    accept="image/*"
+                    type="checkbox"
+                    id="applyToAll"
+                    checked={applyToAll}
+                    onChange={(e) => setApplyToAll(e.target.checked)}
+                    className="rounded"
                   />
+                  <Label htmlFor="applyToAll">
+                    Aplicar configurações para todos os álbuns
+                  </Label>
                 </div>
-              </div>
-
-              {/* Estrutura de Pastas Detectada */}
-              {folderStructure.size > 0 && (
-                <div className="mt-6">
-                  <h3 className="text-lg font-medium mb-4">
-                    Pastas Detectadas ({folderStructure.size})
-                  </h3>
-                  <div className="max-h-64 overflow-y-auto border border-gray-200 rounded-lg p-3 bg-gray-50/50">
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-                      {Array.from(folderStructure.entries()).map(([folderName, files]) => (
-                        <div
-                          key={folderName}
-                          className="flex flex-col items-center p-3 bg-white rounded-lg shadow-sm border border-gray-100 hover:shadow-md transition-shadow"
-                        >
-                          <FolderOpen className="h-8 w-8 text-blue-500 mb-2" />
-                          <div className="text-center">
-                            <div className="font-medium text-sm text-gray-900 truncate w-full" title={folderName}>
-                              {folderName}
-                            </div>
-                            <div className="text-xs text-gray-500 mt-1">
-                              {files.length} foto{files.length !== 1 ? 's' : ''}
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Resultados */}
-          {(createdAlbums.length > 0 || errors.length > 0) && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Resultados</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {createdAlbums.length > 0 && (
-                  <div className="mb-4">
-                    <h4 className="font-medium text-green-700 mb-2">
-                      Álbuns Criados com Sucesso ({createdAlbums.length})
-                    </h4>
-                    <div className="space-y-1">
-                      {createdAlbums.map((albumName) => (
-                        <div key={albumName} className="flex items-center space-x-2 text-sm">
-                          <CheckCircle2 className="h-4 w-4 text-green-500" />
-                          <span>{albumName}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {errors.length > 0 && (
-                  <div>
-                    <h4 className="font-medium text-red-700 mb-2">
-                      Erros ({errors.length})
-                    </h4>
-                    <div className="space-y-1">
-                      {errors.map((error, index) => (
-                        <div key={index} className="flex items-center space-x-2 text-sm">
-                          <AlertCircle className="h-4 w-4 text-red-500" />
-                          <span>{error}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
               </CardContent>
             </Card>
-          )}
 
-          {/* Barra de Progresso */}
-          {(isCreatingMultiple || isPollingStatus) && (
+            {/* Upload de Pastas */}
             <Card>
               <CardHeader>
-                <CardTitle>Criando Múltiplos Álbuns</CardTitle>
+                <CardTitle>Upload de Pastas</CardTitle>
                 <CardDescription>
-                  {isPollingStatus 
-                    ? 'Fazendo upload das fotos para o S3...' 
-                    : 'Aguarde enquanto os álbuns são criados...'
-                  }
+                  Selecione a pasta principal que contém as subpastas com fotos
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  <div className="flex justify-between text-sm">
-                    <span>Progresso: {isPollingStatus ? queueProgress : progress}%</span>
-                    <span>
-                      {isPollingStatus 
-                        ? `Upload para S3 em andamento...`
-                        : `${createdAlbums.length} de ${totalAlbums} álbuns criados`
-                      }
+                <div
+                  onClick={() => document.getElementById('folder-upload')?.click()}
+                  className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer hover:border-primary/50 hover:bg-muted/20 transition-colors"
+                >
+                  <FolderOpen className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                  <div className="mb-4">
+                    <span className="text-lg font-medium text-gray-900">
+                      Clique para selecionar pasta
                     </span>
-                  </div>
-                  
-                  <div className="w-full bg-gray-200 rounded-full h-3">
-                    <div 
-                      className="bg-gradient-to-r from-blue-500 to-purple-600 h-3 rounded-full transition-all duration-500 ease-out"
-                      style={{ width: `${isPollingStatus ? queueProgress : progress}%` }}
+                    <p className="text-sm text-gray-500 mt-1">
+                      Selecione a pasta que contém as subpastas com fotos
+                    </p>
+                    <input
+                      id="folder-upload"
+                      type="file"
+                      // @ts-expect-error - webkitdirectory não está nos tipos padrão
+                      webkitdirectory=""
+                      multiple
+                      onChange={handleFolderUpload}
+                      className="hidden"
+                      accept="image/*"
                     />
                   </div>
-                  
-                  {currentAlbum && (
-                    <div className="text-center">
-                      <p className="text-sm text-gray-600">
-                        {isPollingStatus 
-                          ? <span className="font-medium">{currentAlbum}</span>
-                          : <>Criando álbum: <span className="font-medium">{currentAlbum}</span></>
-                        }
-                      </p>
-                    </div>
-                  )}
-                  
-                  {((progress === 100 && !isPollingStatus) || (queueProgress === 100 && isPollingStatus)) && (
-                    <div className="text-center">
-                      <p className="text-green-600 font-medium">
-                        ✅ Todos os álbuns foram criados e as fotos foram enviadas para o S3!
-                      </p>
-                      <p className="text-sm text-gray-500 mt-1">
-                        Redirecionando para &quot;Meus Álbuns&quot; em alguns segundos...
-                      </p>
-                    </div>
-                  )}
                 </div>
+
+                {/* Estrutura de Pastas Detectada */}
+                {folderStructure.size > 0 && (
+                  <div className="mt-6">
+                    <h3 className="text-lg font-medium mb-4">
+                      Pastas Detectadas ({folderStructure.size})
+                    </h3>
+                    <div className="max-h-64 overflow-y-auto border border-gray-200 rounded-lg p-3 bg-gray-50/50">
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                        {Array.from(folderStructure.entries()).map(([folderName, files]) => (
+                          <div
+                            key={folderName}
+                            className="flex flex-col items-center p-3 bg-white rounded-lg shadow-sm border border-gray-100 hover:shadow-md transition-shadow"
+                          >
+                            <FolderOpen className="h-8 w-8 text-blue-500 mb-2" />
+                            <div className="text-center">
+                              <div className="font-medium text-sm text-gray-900 truncate w-full" title={folderName}>
+                                {folderName}
+                              </div>
+                              <div className="text-xs text-gray-500 mt-1">
+                                {files.length} foto{files.length !== 1 ? 's' : ''}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
-          )}
 
-          {/* Botões de Ação */}
-          <div className="flex justify-between">
-            <Button
-              variant="outline"
-              onClick={() => router.back()}
-              disabled={isUploading}
-            >
-              Voltar
-            </Button>
-            
-            <div className="flex gap-4">
+            {/* Resultados */}
+            {(createdAlbums.length > 0 || errors.length > 0) && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Resultados</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {createdAlbums.length > 0 && (
+                    <div className="mb-4">
+                      <h4 className="font-medium text-green-700 mb-2">
+                        Álbuns Criados com Sucesso ({createdAlbums.length})
+                      </h4>
+                      <div className="space-y-1">
+                        {createdAlbums.map((albumName) => (
+                          <div key={albumName} className="flex items-center space-x-2 text-sm">
+                            <CheckCircle2 className="h-4 w-4 text-green-500" />
+                            <span>{albumName}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {errors.length > 0 && (
+                    <div>
+                      <h4 className="font-medium text-red-700 mb-2">
+                        Erros ({errors.length})
+                      </h4>
+                      <div className="space-y-1">
+                        {errors.map((error, index) => (
+                          <div key={index} className="flex items-center space-x-2 text-sm">
+                            <AlertCircle className="h-4 w-4 text-red-500" />
+                            <span>{error}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Barra de Progresso */}
+            {(isCreatingMultiple || isPollingStatus) && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Criando Múltiplos Álbuns</CardTitle>
+                  <CardDescription>
+                    {isPollingStatus
+                      ? 'Fazendo upload das fotos para o S3...'
+                      : 'Aguarde enquanto os álbuns são criados...'
+                    }
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="flex justify-between text-sm">
+                      <span>Progresso: {isPollingStatus ? queueProgress : progress}%</span>
+                      <span>
+                        {isPollingStatus
+                          ? `Upload para S3 em andamento...`
+                          : `${createdAlbums.length} de ${totalAlbums} álbuns criados`
+                        }
+                      </span>
+                    </div>
+
+                    <div className="w-full bg-gray-200 rounded-full h-3">
+                      <div
+                        className="bg-gradient-to-r from-blue-500 to-purple-600 h-3 rounded-full transition-all duration-500 ease-out"
+                        style={{ width: `${isPollingStatus ? queueProgress : progress}%` }}
+                      />
+                    </div>
+
+                    {currentAlbum && (
+                      <div className="text-center">
+                        <p className="text-sm text-gray-600">
+                          {isPollingStatus
+                            ? <span className="font-medium">{currentAlbum}</span>
+                            : <>Criando álbum: <span className="font-medium">{currentAlbum}</span></>
+                          }
+                        </p>
+                      </div>
+                    )}
+
+                    {((progress === 100 && !isPollingStatus) || (queueProgress === 100 && isPollingStatus)) && (
+                      <div className="text-center">
+                        <p className="text-green-600 font-medium">
+                          ✅ Todos os álbuns foram criados e as fotos foram enviadas para o S3!
+                        </p>
+                        <p className="text-sm text-gray-500 mt-1">
+                          Redirecionando para &quot;Meus Álbuns&quot; em alguns segundos...
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Botões de Ação */}
+            <div className="flex justify-between">
               <Button
-                onClick={handlePreview}
-                disabled={!eventName || !selectedAlbumSize || folderStructure.size === 0 || isUploading}
                 variant="outline"
-                className="min-w-[200px]"
+                onClick={() => router.back()}
+                disabled={isUploading}
               >
-                👁️ Visualizar Preview
+                Voltar
               </Button>
-              <Button
-                onClick={handleCreateAlbums}
-                disabled={!eventName || !selectedAlbumSize || folderStructure.size === 0 || isUploading || isCreatingMultiple || isPollingStatus}
-                className="min-w-[200px]"
-              >
-                {isPollingStatus ? (
-                  <div className="flex items-center space-x-2">
-                    <Upload className="h-4 w-4 animate-spin" />
-                    <span>Upload S3... ({queueProgress}%)</span>
-                  </div>
-                ) : isCreatingMultiple ? (
-                  <div className="flex items-center space-x-2">
-                    <Upload className="h-4 w-4 animate-spin" />
-                    <span>Criando Álbuns... ({progress}%)</span>
-                  </div>
-                ) : isUploading ? (
-                  <div className="flex items-center space-x-2">
-                    <Upload className="h-4 w-4 animate-spin" />
-                    <span>Processando...</span>
-                  </div>
-                ) : (
-                  `🚀 Criar ${folderStructure.size} Álbuns`
-                )}
-              </Button>
+
+              <div className="flex gap-4">
+                <Button
+                  onClick={handlePreview}
+                  disabled={!eventName || !selectedAlbumSize || folderStructure.size === 0 || isUploading}
+                  variant="outline"
+                  className="min-w-[200px]"
+                >
+                  👁️ Visualizar Preview
+                </Button>
+                <Button
+                  onClick={handleCreateAlbums}
+                  disabled={!eventName || !selectedAlbumSize || folderStructure.size === 0 || isUploading || isCreatingMultiple || isPollingStatus}
+                  className="min-w-[200px]"
+                >
+                  {isPollingStatus ? (
+                    <div className="flex items-center space-x-2">
+                      <Upload className="h-4 w-4 animate-spin" />
+                      <span>Upload S3... ({queueProgress}%)</span>
+                    </div>
+                  ) : isCreatingMultiple ? (
+                    <div className="flex items-center space-x-2">
+                      <Upload className="h-4 w-4 animate-spin" />
+                      <span>Criando Álbuns... ({progress}%)</span>
+                    </div>
+                  ) : isUploading ? (
+                    <div className="flex items-center space-x-2">
+                      <Upload className="h-4 w-4 animate-spin" />
+                      <span>Processando...</span>
+                    </div>
+                  ) : (
+                    `🚀 Criar ${folderStructure.size} Álbuns`
+                  )}
+                </Button>
+              </div>
             </div>
           </div>
         </div>
@@ -546,7 +548,7 @@ export default function CreateBatchAlbumsPage() {
                         <p className="text-gray-600">{album.photoCount} fotos</p>
                       </div>
                     </div>
-                    
+
                     {album.samplePhotos.length > 0 && (
                       <div>
                         <p className="text-sm text-gray-500 mb-2">Primeiras fotos:</p>

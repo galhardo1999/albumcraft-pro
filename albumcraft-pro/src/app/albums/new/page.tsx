@@ -1,69 +1,27 @@
-'use client'
-
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { redirect } from 'next/navigation'
+import { cookies } from 'next/headers'
 import { Button } from '@/components/ui/button'
-import { useAuth } from '@/hooks/useAuth'
+import { DashboardNavbar } from '@/shared/components/navbar'
+import { AUTH_COOKIE_NAME } from '@/core/auth/cookies'
+import { JWTConfig } from '@/core/auth/jwt'
 
-export default function NewProjectPage() {
-  const router = useRouter()
-  const { logout } = useAuth()
+export default async function NewProjectPage() {
+  const cookieStore = await cookies()
+  const token = cookieStore.get(AUTH_COOKIE_NAME)?.value
 
-  const handleLogout = async () => {
-    await logout()
+  if (!token) {
+    redirect('/auth/login')
+  }
+
+  const verification = await JWTConfig.verifyToken(token)
+  if (!verification.valid || !verification.payload) {
+    redirect('/auth/login')
   }
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Navbar */}
-      <nav className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="max-w-7xl mx-auto px-6">
-          <div className="flex justify-between items-center h-16">
-            {/* Logo */}
-            <Link href="/dashboard" className="flex items-center">
-              <h1 className="text-xl font-semibold tracking-tight">AlbumCraft Pro</h1>
-            </Link>
-            
-            {/* Navigation Links */}
-            <div className="hidden md:flex items-center space-x-8">
-              <Link 
-                href="/dashboard" 
-                className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-              >
-                Dashboard
-              </Link>
-              <Link 
-                href="/albums" 
-                className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-              >
-                Meus Álbuns
-              </Link>
-              <Link 
-                href="/profile" 
-                className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-              >
-                Perfil
-              </Link>
-              <button
-                onClick={handleLogout}
-                className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-              >
-                Sair
-              </button>
-            </div>
-
-            {/* Mobile menu button */}
-            <div className="md:hidden">
-              <button
-                onClick={handleLogout}
-                className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-              >
-                Sair
-              </button>
-            </div>
-          </div>
-        </div>
-      </nav>
+      <DashboardNavbar />
 
       {/* Main Content */}
       <main className="max-w-4xl mx-auto px-6 py-8">
@@ -84,12 +42,12 @@ export default function NewProjectPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
               </svg>
             </div>
-            
+
             <h3 className="text-2xl font-bold mb-4">Criar Álbum</h3>
             <p className="text-muted-foreground mb-6 leading-relaxed">
               Ideal para projetos individuais. Configure um único álbum com suas especificações personalizadas.
             </p>
-            
+
             <div className="space-y-3 mb-8 text-sm text-muted-foreground">
               <div className="flex items-center justify-center space-x-2">
                 <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -111,13 +69,11 @@ export default function NewProjectPage() {
               </div>
             </div>
 
-            <Button 
-              onClick={() => router.push('/albums/new/single')}
-              className="w-full"
-              size="lg"
-            >
-              Criar Álbum Individual
-            </Button>
+            <Link href="/albums/new/single" className="w-full">
+              <Button className="w-full" size="lg">
+                Criar Álbum Individual
+              </Button>
+            </Link>
           </div>
 
           {/* Multiple Albums Option */}
@@ -128,12 +84,12 @@ export default function NewProjectPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
               </svg>
             </div>
-            
+
             <h3 className="text-2xl font-bold mb-4">Criar Diversos Álbuns</h3>
             <p className="text-muted-foreground mb-6 leading-relaxed">
               Perfeito para profissionais. Crie múltiplos álbuns simultaneamente com configurações otimizadas.
             </p>
-            
+
             <div className="space-y-3 mb-8 text-sm text-muted-foreground">
               <div className="flex items-center justify-center space-x-2">
                 <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -155,26 +111,25 @@ export default function NewProjectPage() {
               </div>
             </div>
 
-            <Button 
-              onClick={() => router.push('/albums/new/batch')}
-              variant="outline"
-              className="w-full border-blue-200 text-blue-600 hover:bg-blue-50"
-              size="lg"
-            >
-              Criar Múltiplos Álbuns
-            </Button>
+            <Link href="/albums/new/batch" className="w-full">
+              <Button
+                variant="outline"
+                className="w-full border-blue-200 text-blue-600 hover:bg-blue-50"
+                size="lg"
+              >
+                Criar Múltiplos Álbuns
+              </Button>
+            </Link>
           </div>
         </div>
 
         {/* Back Button */}
         <div className="text-center mt-12">
-          <Button 
-            variant="ghost" 
-            onClick={() => router.back()}
-            className="text-muted-foreground hover:text-foreground"
-          >
-            ← Voltar ao Dashboard
-          </Button>
+          <Link href="/dashboard">
+            <Button variant="ghost" className="text-muted-foreground hover:text-foreground">
+              ← Voltar ao Dashboard
+            </Button>
+          </Link>
         </div>
       </main>
     </div>

@@ -6,6 +6,9 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import Image from 'next/image'
+import { DashboardNavbar } from '@/shared/components/navbar'
+import { createAlbumAction } from '@/features/albums/actions/create-album.action'
+import { uploadPhotoAction } from '@/features/photos/actions/upload-photo.action'
 
 import { ALBUM_SIZES, formatSizeDisplay, AlbumSizeConfig } from '@/lib/album-sizes'
 
@@ -14,61 +17,50 @@ interface FormData {
   albumSize: string
 }
 
-// Nova interface para fotos temporárias (apenas em memória)
 interface TempPhoto {
   id: string
   file: File
   name: string
-  url: string // URL temporária criada com URL.createObjectURL
+  url: string
   width: number
   height: number
   fileSize: number
   isTemp: true
 }
 
-// Interface unificada para fotos (apenas temporárias agora)
 type PhotoItem = TempPhoto
-
-import { useAuth } from '@/hooks/useAuth'
 
 export default function SingleAlbumPage() {
   const router = useRouter()
-  const { logout } = useAuth()
-  const [formData, setFormData] = useState<FormData>({
+  const [formDataState, setFormDataState] = useState<FormData>({
     name: '',
-    albumSize: 'SIZE_30X20' // Padrão para 30x20
+    albumSize: 'SIZE_30X20' // Default 30x20
   })
-  const [photos, setPhotos] = useState<PhotoItem[]>([]) // Agora suporta apenas fotos temporárias
+  const [photos, setPhotos] = useState<PhotoItem[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  // Obter apenas os tamanhos específicos solicitados
   const getAlbumSizes = (): AlbumSizeConfig[] => {
-    return ALBUM_SIZES.filter(size => 
+    return ALBUM_SIZES.filter(size =>
       size.id === 'SIZE_30X20' || size.id === 'SIZE_20X30'
     )
   }
 
   const handleInputChange = (field: keyof FormData, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }))
+    setFormDataState(prev => ({ ...prev, [field]: value }))
   }
 
-  // Função para remover foto da lista
   const removePhoto = (photoId: string) => {
     setPhotos(prev => {
       const photoToRemove = prev.find(p => p.id === photoId)
-      
-      // Se for uma foto temporária, limpar a URL para evitar memory leak
       if (photoToRemove && photoToRemove.isTemp) {
         URL.revokeObjectURL(photoToRemove.url)
       }
-      
       return prev.filter(p => p.id !== photoId)
     })
   }
 
-  // Cleanup das URLs temporárias quando o componente for desmontado
   useEffect(() => {
     return () => {
       photos.forEach(photo => {
@@ -89,21 +81,18 @@ export default function SingleAlbumPage() {
 
     try {
       const tempPhotos: TempPhoto[] = []
-      
+
       for (let i = 0; i < files.length; i++) {
         const file = files[i]
-        
-        // Validar tipo de arquivo
+
         if (!file.type.startsWith('image/')) {
           console.warn(`Arquivo ${file.name} não é uma imagem válida`)
           continue
         }
-        
-        // Criar URL temporária para preview
+
         const tempUrl = URL.createObjectURL(file)
-        
-        // Obter dimensões da imagem
-        const dimensions = await new Promise<{width: number, height: number}>((resolve) => {
+
+        const dimensions = await new Promise<{ width: number, height: number }>((resolve) => {
           if (typeof window !== 'undefined') {
             const img = new window.Image()
             img.onload = () => {
@@ -114,15 +103,12 @@ export default function SingleAlbumPage() {
             }
             img.src = tempUrl
           } else {
-            // No servidor, não podemos obter dimensões, usar valores padrão
             resolve({ width: 0, height: 0 })
           }
         })
-        
-        // Gerar ID único para a foto temporária
+
         const tempId = `temp_${Date.now()}_${i}`
-        
-        // Criar objeto de foto temporária
+
         const tempPhoto: TempPhoto = {
           id: tempId,
           file: file,
@@ -133,17 +119,15 @@ export default function SingleAlbumPage() {
           fileSize: file.size,
           isTemp: true
         }
-        
+
         tempPhotos.push(tempPhoto)
       }
-      
-      // Adicionar fotos temporárias ao estado
+
       setPhotos(prev => [...prev, ...tempPhotos])
       setError('')
-      
-      // Limpar o input
+
       event.target.value = ''
-      
+
     } catch (error) {
       console.error('Erro ao processar fotos:', error)
       setError('Erro ao processar fotos. Tente novamente.')
@@ -160,8 +144,8 @@ export default function SingleAlbumPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
-    if (!formData.name.trim()) {
+
+    if (!formDataState.name.trim()) {
       setError('Nome do álbum é obrigatório')
       return
     }
@@ -170,77 +154,53 @@ export default function SingleAlbumPage() {
     setError('')
 
     try {
-      // 1. Criar o projeto
-      const response = await fetch('/api/albums', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify({
-          name: formData.name.trim(),
-          albumSize: formData.albumSize,
-          status: 'DRAFT',
-          creationType: 'SINGLE'
-        })
-      })
+      // 1. Create album
+      const formData = new FormData()
+      formData.append('name', formDataState.name.trim())
+      formData.append('albumSize', formDataState.albumSize)
+      formData.append('status', 'DRAFT')
+      formData.append('creationType', 'SINGLE')
 
-      if (!response.ok) {
-        const errorData = await response.json()
-        setError(errorData.message || 'Erro ao criar álbum')
+      const result = await createAlbumAction(null, formData)
+
+      if (!result.success || !result.albumId) {
+        setError(result.error || 'Erro ao criar álbum')
+        setIsLoading(false)
         return
       }
 
-      const data = await response.json()
-      const albumId = data.album.id
+      const albumId = result.albumId
 
-      // 2. Fazer upload das fotos temporárias
+      // 2. Upload photos
       if (photos.length > 0) {
         try {
-          const uploadPromises: Promise<Response>[] = []
+          const uploadPromises: Promise<any>[] = []
 
           for (const photo of photos) {
-            // Fazer upload da foto temporária
-            const formData = new FormData()
-            formData.append('files', photo.file)
-            formData.append('albumId', albumId) // Associar diretamente ao álbum
+            const photoFormData = new FormData()
+            photoFormData.append('file', photo.file)
+            photoFormData.append('albumId', albumId)
 
-            const uploadPromise = fetch('/api/photos', {
-              method: 'POST',
-              body: formData,
-              credentials: 'include'
-            })
-
+            // Use uploadPhotoAction
+            const uploadPromise = uploadPhotoAction(null, photoFormData)
             uploadPromises.push(uploadPromise)
           }
 
-          // Executar todos os uploads em paralelo
-          const results = await Promise.allSettled(uploadPromises)
-          
-          // Verificar resultados e capturar erros
+          const results = await Promise.all(uploadPromises)
+
           const errors: string[] = []
-          for (let i = 0; i < results.length; i++) {
-            const result = results[i]
-            if (result.status === 'rejected') {
-              console.error(`Erro no upload ${i}:`, result.reason)
-              errors.push(`Erro no upload da foto ${i + 1}`)
-            } else {
-              // Verificar se a resposta foi bem-sucedida
-              const response = result.value
-              if (!response.ok) {
-                const errorData = await response.json().catch(() => ({ error: 'Erro desconhecido' }))
-                console.error(`Erro HTTP no upload ${i}:`, response.status, errorData)
-                errors.push(`Erro HTTP ${response.status} na foto ${i + 1}: ${errorData.error || 'Erro desconhecido'}`)
-              }
+          results.forEach((res, i) => {
+            if (!res.success) {
+              console.error(`Erro no upload ${i}:`, res.error)
+              errors.push(`Erro na foto ${photos[i].name}: ${res.error}`)
             }
-          }
-          
+          })
+
           if (errors.length > 0) {
             console.error('Erros encontrados nos uploads:', errors)
             setError(`Álbum criado, mas houve erros: ${errors.join(', ')}`)
           }
 
-          // Limpar URLs temporárias para evitar memory leaks
           photos.forEach(photo => {
             if (photo.isTemp) {
               URL.revokeObjectURL(photo.url)
@@ -249,79 +209,23 @@ export default function SingleAlbumPage() {
 
         } catch (photoError) {
           console.error('Erro ao processar fotos:', photoError)
-          // Não bloquear a criação do projeto por erro nas fotos
           setError('Álbum criado, mas houve erro ao processar algumas fotos.')
         }
       }
 
-      // 3. Redirecionar para o projeto criado
       router.push(`/albums/${albumId}`)
-      
+
     } catch (error) {
       console.error('Error creating project:', error)
       setError('Erro ao criar álbum. Tente novamente.')
-    } finally {
       setIsLoading(false)
     }
   }
 
-  const handleLogout = async () => {
-    await logout()
-  }
-
   return (
     <div className="min-h-screen bg-background">
-      {/* Navbar */}
-      <nav className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="max-w-7xl mx-auto px-6">
-          <div className="flex justify-between items-center h-16">
-            {/* Logo */}
-            <Link href="/dashboard" className="flex items-center">
-              <h1 className="text-xl font-semibold tracking-tight">AlbumCraft Pro</h1>
-            </Link>
-            
-            {/* Navigation Links */}
-            <div className="hidden md:flex items-center space-x-8">
-              <Link 
-                href="/dashboard" 
-                className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-              >
-                Dashboard
-              </Link>
-              <Link 
-                href="/albums" 
-                className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-              >
-                Meus Álbuns
-              </Link>
-              <Link 
-                href="/profile" 
-                className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-              >
-                Perfil
-              </Link>
-              <button
-                onClick={handleLogout}
-                className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-              >
-                Sair
-              </button>
-            </div>
+      <DashboardNavbar />
 
-            {/* Mobile menu button */}
-            <div className="md:hidden">
-              <button
-                onClick={handleLogout}
-                className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-              >
-                Sair
-              </button>
-            </div>
-          </div>
-        </div>
-      </nav>
-
-      {/* Main Content */}
       <main className="max-w-4xl mx-auto px-6 py-8">
         {/* Header */}
         <div className="mb-8">
@@ -338,21 +242,17 @@ export default function SingleAlbumPage() {
           </p>
         </div>
 
-        {/* Error Message */}
         {error && (
           <div className="mb-6 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 text-sm">
             {error}
           </div>
         )}
 
-        {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-8">
-          {/* Basic Information */}
           <div className="rounded-xl border bg-card p-6">
             <h2 className="text-xl font-semibold mb-6">Informações Básicas</h2>
-            
+
             <div className="space-y-6">
-              {/* Nome do Álbum */}
               <div>
                 <label htmlFor="name" className="block text-sm font-medium mb-2">
                   Nome do Álbum *
@@ -360,7 +260,7 @@ export default function SingleAlbumPage() {
                 <Input
                   id="name"
                   type="text"
-                  value={formData.name}
+                  value={formDataState.name}
                   onChange={(e) => handleInputChange('name', e.target.value)}
                   placeholder="Ex: Casamento João e Maria"
                   className="w-full"
@@ -368,30 +268,27 @@ export default function SingleAlbumPage() {
                 />
               </div>
 
-              {/* Tamanho do Álbum */}
               <div>
                 <label className="block text-sm font-medium mb-4">
                   Tamanho do Álbum *
                 </label>
-                
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {getAlbumSizes().map((size) => (
                     <div
                       key={size.id}
-                      className={`rounded-lg border p-4 cursor-pointer transition-colors ${
-                        formData.albumSize === size.id
+                      className={`rounded-lg border p-4 cursor-pointer transition-colors ${formDataState.albumSize === size.id
                           ? 'border-primary bg-primary/5'
                           : 'border-border hover:border-primary/50'
-                      }`}
+                        }`}
                       onClick={() => handleInputChange('albumSize', size.id)}
                     >
                       <div className="flex items-center space-x-3">
-                        <div className={`w-4 h-4 rounded-full border-2 ${
-                          formData.albumSize === size.id
+                        <div className={`w-4 h-4 rounded-full border-2 ${formDataState.albumSize === size.id
                             ? 'border-primary bg-primary'
                             : 'border-muted-foreground'
-                        }`}>
-                          {formData.albumSize === size.id && (
+                          }`}>
+                          {formDataState.albumSize === size.id && (
                             <div className="w-full h-full rounded-full bg-white scale-50"></div>
                           )}
                         </div>
@@ -404,17 +301,15 @@ export default function SingleAlbumPage() {
                 </div>
               </div>
 
-              {/* Upload de Fotos */}
               <div>
                 <label className="block text-sm font-medium mb-4">
                   Upload de Fotos
                 </label>
-                
+
                 <p className="text-xs text-muted-foreground mb-4">
                   Formatos aceitos: JPG, PNG. As fotos serão salvas quando você criar o álbum.
                 </p>
 
-                {/* Lista de Fotos Carregadas */}
                 {photos.length > 0 && (
                   <div className="border rounded-lg p-4 bg-muted/30">
                     <div className="flex items-center justify-between mb-3">
@@ -433,8 +328,7 @@ export default function SingleAlbumPage() {
                               height={100}
                               className="w-full h-full object-cover"
                             />
-                            
-                            {/* Botão de remoção */}
+
                             <button
                               type="button"
                               onClick={() => removePhoto(photo.id)}
@@ -465,9 +359,8 @@ export default function SingleAlbumPage() {
                   </div>
                 )}
 
-                {/* Estado vazio - Área clicável */}
                 {photos.length === 0 && (
-                  <div 
+                  <div
                     className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-8 text-center cursor-pointer hover:border-primary/50 hover:bg-muted/20 transition-colors"
                     onClick={handleImportClick}
                   >
@@ -488,20 +381,19 @@ export default function SingleAlbumPage() {
             </div>
           </div>
 
-          {/* Actions */}
           <div className="flex justify-between items-center pt-6">
-            <Button 
+            <Button
               type="button"
-              variant="ghost" 
+              variant="ghost"
               onClick={() => router.back()}
               className="text-muted-foreground hover:text-foreground"
             >
               ← Voltar
             </Button>
 
-            <Button 
-              type="submit" 
-              disabled={isLoading || !formData.name.trim()}
+            <Button
+              type="submit"
+              disabled={isLoading || !formDataState.name.trim()}
               className="min-w-[120px]"
             >
               {isLoading ? (
@@ -516,7 +408,6 @@ export default function SingleAlbumPage() {
           </div>
         </form>
 
-        {/* Input de arquivo oculto */}
         <input
           ref={fileInputRef}
           type="file"

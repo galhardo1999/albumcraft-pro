@@ -4,6 +4,7 @@ import { useState, useRef } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import Image from 'next/image'
+import { uploadPhotoAction } from '@/features/photos/actions/upload-photo.action'
 
 interface Photo {
   id: string
@@ -17,32 +18,20 @@ interface Photo {
   mediumUrl?: string
 }
 
-interface ApiPhotoResponse {
-  id: string
-  url: string
-  name: string
-  width: number
-  height: number
-  fileSize: number
-  albumId?: string | null
-  thumbnailUrl?: string
-  mediumUrl?: string
-}
-
 interface PhotoGalleryProps {
   photos: Photo[]
   onPhotoDragStart: (photo: Photo) => void
   onPhotoDragEnd?: () => void
   onPhotoImport: (newPhotos: Photo[]) => void
-  albumId?: string // Novo prop para associar fotos ao álbum
+  albumId?: string
 }
 
 export default function PhotoGallery({ photos, onPhotoDragStart, onPhotoDragEnd, onPhotoImport, albumId }: PhotoGalleryProps) {
   const [searchTerm, setSearchTerm] = useState('')
+  const [isUploading, setIsUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  // Filtrar fotos apenas por busca
-  const filteredPhotos = photos.filter(photo => 
+  const filteredPhotos = photos.filter(photo =>
     photo.filename.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
@@ -54,58 +43,66 @@ export default function PhotoGallery({ photos, onPhotoDragStart, onPhotoDragEnd,
     const files = event.target.files
     if (!files || files.length === 0) return
 
+    setIsUploading(true)
+
     try {
-      // Criar FormData para enviar os arquivos
-      const formData = new FormData()
-      
+      const uploadPromises: Promise<any>[] = []
+
       for (let i = 0; i < files.length; i++) {
-        formData.append('files', files[i])
+        const file = files[i]
+        const formData = new FormData()
+        formData.append('file', file)
+        if (albumId) {
+          formData.append('albumId', albumId)
+        }
+
+        uploadPromises.push(uploadPhotoAction(null, formData))
       }
-      
-      // Incluir albumId se fornecido
-    if (albumId) {
-      formData.append('albumId', albumId)
-      }
-      
-      // A API irá buscar automaticamente o primeiro usuário disponível
-      
-      // Fazer upload via API
-      const response = await fetch('/api/photos', {
-        method: 'POST',
-        body: formData
+
+      const results = await Promise.all(uploadPromises)
+
+      const successfulPhotos: Photo[] = []
+      const errors: string[] = []
+
+      results.forEach((result, index) => {
+        if (result.success && result.photo) {
+          const p = result.photo
+          successfulPhotos.push({
+            id: p.id,
+            originalUrl: p.s3Url, // or p.originalUrl if mapped
+            filename: p.filename,
+            width: p.width || 0,
+            height: p.height || 0,
+            fileSize: p.size,
+            albumId: p.albumId,
+            thumbnailUrl: p.s3Url, // Using original as thumb for now if not processed
+            mediumUrl: p.s3Url
+          })
+        } else {
+          errors.push(result.error || `Error uploading file ${index + 1}`)
+        }
       })
-      
-      if (!response.ok) {
-        throw new Error('Erro no upload das fotos')
+
+      if (successfulPhotos.length > 0) {
+        // Need to adapt the photo object to what PhotoGallery expects
+        // The service returns Prisma Photo object. 
+        // We might need to ensure URL mapping is correct.
+        onPhotoImport(successfulPhotos)
       }
-      
-      const result = await response.json()
-      
-      if (result.success && result.photos) {
-        const mapped: Photo[] = result.photos.map((p: ApiPhotoResponse) => ({
-          id: p.id,
-          originalUrl: p.url,
-          filename: p.name,
-          width: p.width,
-          height: p.height,
-          fileSize: p.fileSize,
-          albumId: p.albumId,
-          thumbnailUrl: p.thumbnailUrl,
-          mediumUrl: p.mediumUrl,
-        }))
-        // Chamar callback para adicionar as fotos
-        onPhotoImport(mapped)
-        alert(result.message || 'Fotos enviadas com sucesso!')
-      } else {
-        throw new Error(result.error || 'Erro desconhecido')
+
+      if (errors.length > 0) {
+        console.error('Errors uploading photos:', errors)
+        alert(`Algumas fotos falharam ao enviar: ${errors.length}`)
+      } else if (successfulPhotos.length > 0) {
+        // success message optional
       }
-      
-      // Limpar o input
-      event.target.value = ''
-      
+
     } catch (error) {
       console.error('Erro ao fazer upload das fotos:', error)
       alert('Erro ao fazer upload das fotos. Tente novamente.')
+    } finally {
+      setIsUploading(false)
+      event.target.value = ''
     }
   }
 
@@ -125,7 +122,6 @@ export default function PhotoGallery({ photos, onPhotoDragStart, onPhotoDragEnd,
       onDragStart={() => onPhotoDragStart(photo)}
       onDragEnd={() => onPhotoDragEnd?.()}
     >
-      {/* Thumbnail */}
       <div className="aspect-square bg-muted relative overflow-hidden">
         <Image
           src={photo.thumbnailUrl || photo.originalUrl}
@@ -135,8 +131,7 @@ export default function PhotoGallery({ photos, onPhotoDragStart, onPhotoDragEnd,
           className="w-full h-full object-cover"
         />
       </div>
-      
-      {/* Informações da foto */}
+
       <div className="p-2">
         <p className="text-xs font-medium truncate" title={photo.filename}>
           {photo.filename}
@@ -155,7 +150,6 @@ export default function PhotoGallery({ photos, onPhotoDragStart, onPhotoDragEnd,
 
   return (
     <div className="h-full flex flex-col">
-      {/* Header */}
       <div className="p-4 border-b">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold">Galeria de Fotos</h3>
@@ -163,16 +157,19 @@ export default function PhotoGallery({ photos, onPhotoDragStart, onPhotoDragEnd,
             <span className="text-sm text-muted-foreground">
               {photos.length} foto{photos.length !== 1 ? 's' : ''}
             </span>
-            <Button size="sm" onClick={handleImportClick} aria-label="Importar novas fotos">
-              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
+            <Button size="sm" onClick={handleImportClick} disabled={isUploading} aria-label="Importar novas fotos">
+              {isUploading ? (
+                <span className="animate-spin mr-2">⏳</span>
+              ) : (
+                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+              )}
               Importar
             </Button>
           </div>
         </div>
-        
-        {/* Busca */}
+
         <Input
           placeholder="Buscar fotos..."
           value={searchTerm}
@@ -181,7 +178,6 @@ export default function PhotoGallery({ photos, onPhotoDragStart, onPhotoDragEnd,
         />
       </div>
 
-      {/* Lista de Fotos */}
       <div className="flex-1 overflow-y-auto p-4">
         {filteredPhotos.length === 0 ? (
           <div className="text-center py-8">
@@ -197,7 +193,7 @@ export default function PhotoGallery({ photos, onPhotoDragStart, onPhotoDragEnd,
               {searchTerm ? 'Tente ajustar o termo de busca' : 'Clique em "Importar" para adicionar fotos'}
             </p>
             {!searchTerm && (
-              <Button size="sm" variant="outline" onClick={handleImportClick}>
+              <Button size="sm" variant="outline" onClick={handleImportClick} disabled={isUploading}>
                 Importar Fotos
               </Button>
             )}
@@ -211,7 +207,6 @@ export default function PhotoGallery({ photos, onPhotoDragStart, onPhotoDragEnd,
         )}
       </div>
 
-      {/* Input de arquivo oculto */}
       <input
         ref={fileInputRef}
         type="file"

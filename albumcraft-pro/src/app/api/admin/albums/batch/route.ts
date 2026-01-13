@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/admin-middleware'
 import { prisma } from '@/lib/prisma'
-import { BatchAlbumRequest } from '@/lib/validations'
+import { batchAlbumRequestSchema } from '@/features/albums/schemas/album.schema'
 import { addAlbumCreationJob } from '@/lib/queue'
 import { AlbumStatus, AlbumSize, Template, CreationType } from '@prisma/client'
 
@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
   try {
     // Validar payload com Zod para garantir que somente campos necessários sejam exigidos
     const json = await request.json()
-    const parsed = BatchAlbumRequest.safeParse(json)
+    const parsed = batchAlbumRequestSchema.safeParse(json)
     if (!parsed.success) {
       return NextResponse.json(
         { error: 'Dados inválidos', details: parsed.error.flatten() },
@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
 
         // Adicionar job à fila com prioridade baseada na ordem
         const priority = albums.length - index
-        
+
         const job = await addAlbumCreationJob({
           userId,
           eventName: album.eventName || album.name,
@@ -88,7 +88,7 @@ export async function POST(request: NextRequest) {
       })
 
       const results = await Promise.all(jobPromises)
-      
+
       return NextResponse.json({
         success: true,
         message: `${albums.length} álbuns adicionados à fila de processamento`,
@@ -100,7 +100,7 @@ export async function POST(request: NextRequest) {
 
     // Criar múltiplos álbuns diretamente (modo síncrono)
     const createdAlbums = []
-    
+
     for (const album of albums) {
       // Validar dados do álbum (status e group não são obrigatórios)
       if (!album.name || !album.albumSize) {
